@@ -3,399 +3,59 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SoilSMS — Smart Soil Monitoring for Rural Tanzania</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700&display=swap');
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: #0a0a0a;
-    color: #e0e0e0;
-    font-family: 'Inter', sans-serif;
-    overflow-x: hidden;
-  }
-
-  /* Hero */
-  .hero {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 40px 20px;
-    position: relative;
-    overflow: hidden;
-  }
-  .hero::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-      radial-gradient(ellipse at 30% 20%, rgba(124,252,0,0.06) 0%, transparent 50%),
-      radial-gradient(ellipse at 70% 80%, rgba(52,152,219,0.05) 0%, transparent 50%);
-    pointer-events: none;
-  }
-  .hero-title {
-    font-family: 'Press Start 2P', monospace;
-    font-size: clamp(28px, 5vw, 52px);
-    color: #7cfc00;
-    text-shadow: 0 0 30px rgba(124,252,0,0.3);
-    margin-bottom: 16px;
-    letter-spacing: 2px;
-  }
-  .hero-subtitle {
-    font-size: clamp(16px, 2.5vw, 22px);
-    color: #999;
-    max-width: 600px;
-    line-height: 1.6;
-    margin-bottom: 40px;
-  }
-  .hero-cta {
-    display: inline-block;
-    padding: 16px 48px;
-    background: #7cfc00;
-    color: #0a0a0a;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 14px;
-    text-decoration: none;
-    border-radius: 8px;
-    transition: all 0.3s;
-    box-shadow: 0 0 30px rgba(124,252,0,0.2);
-  }
-  .hero-cta:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0 50px rgba(124,252,0,0.4);
-    background: #90ff20;
-  }
-
-  /* Flow diagram */
-  .flow-strip {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    margin: 40px 0 20px;
-    flex-wrap: wrap;
-  }
-  .flow-node {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    border-radius: 8px;
-    border: 1px solid #333;
-    background: rgba(255,255,255,0.03);
-    font-size: 13px;
-    color: #ccc;
-  }
-  .flow-node .dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .flow-arrow {
-    color: #444;
-    font-size: 18px;
-  }
-
-  /* Sections */
-  section {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 80px 24px;
-  }
-  section h2 {
-    font-family: 'Press Start 2P', monospace;
-    font-size: clamp(14px, 2.5vw, 20px);
-    color: #7cfc00;
-    margin-bottom: 32px;
-    text-shadow: 0 0 10px rgba(124,252,0,0.2);
-  }
-
-  /* Cards grid */
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 24px;
-  }
-  .card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid #222;
-    border-radius: 12px;
-    padding: 28px;
-    transition: border-color 0.3s, transform 0.3s;
-  }
-  .card:hover {
-    border-color: #7cfc0044;
-    transform: translateY(-2px);
-  }
-  .card-icon {
-    font-size: 28px;
-    margin-bottom: 14px;
-    display: block;
-  }
-  .card h3 {
-    font-size: 16px;
-    font-weight: 600;
-    color: #fff;
-    margin-bottom: 10px;
-  }
-  .card p {
-    font-size: 14px;
-    color: #888;
-    line-height: 1.6;
-  }
-
-  /* Architecture */
-  .arch-block {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid #222;
-    border-radius: 12px;
-    padding: 28px;
-    font-family: 'Courier New', monospace;
-    font-size: 13px;
-    line-height: 1.8;
-    color: #aaa;
-    overflow-x: auto;
-    white-space: pre;
-  }
-  .arch-block .hl-green { color: #7cfc00; }
-  .arch-block .hl-blue { color: #3498db; }
-  .arch-block .hl-yellow { color: #f1c40f; }
-
-  /* Hardware table */
-  .hw-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 14px;
-  }
-  .hw-table th {
-    text-align: left;
-    padding: 12px 16px;
-    border-bottom: 2px solid #333;
-    color: #7cfc00;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 9px;
-    letter-spacing: 1px;
-  }
-  .hw-table td {
-    padding: 12px 16px;
-    border-bottom: 1px solid #1a1a1a;
-    color: #aaa;
-  }
-  .hw-table tr:hover td {
-    color: #ddd;
-    background: rgba(255,255,255,0.02);
-  }
-
-  /* SMS example */
-  .sms-examples {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 24px;
-  }
-  .sms-box {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid #222;
-    border-radius: 12px;
-    overflow: hidden;
-  }
-  .sms-box-header {
-    padding: 12px 20px;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 9px;
-    letter-spacing: 1px;
-  }
-  .sms-box-header.send { background: rgba(241,196,15,0.1); color: #f1c40f; }
-  .sms-box-header.recv { background: rgba(124,252,0,0.08); color: #7cfc00; }
-  .sms-box pre {
-    padding: 16px 20px;
-    font-size: 12px;
-    color: #aaa;
-    line-height: 1.6;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-
-  /* Footer */
-  footer {
-    text-align: center;
-    padding: 40px 20px;
-    border-top: 1px solid #1a1a1a;
-    color: #555;
-    font-size: 13px;
-  }
-  footer a { color: #7cfc00; text-decoration: none; }
-  footer a:hover { text-decoration: underline; }
-
-  /* Divider */
-  .divider {
-    width: 60px;
-    height: 3px;
-    background: #7cfc0033;
-    border-radius: 2px;
-    margin: 0 auto 60px;
-  }
-</style>
+<title>Tanzania Farm Sim</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- ====== HERO ====== -->
-<div class="hero">
-  <h1 class="hero-title">SoilSMS</h1>
-  <p class="hero-subtitle">
-    SMS-based soil monitoring and AI crop advisory for rural Tanzania.
-    No internet required on the farm &mdash; works on 2G GSM.
-  </p>
-
-  <div class="flow-strip">
-    <div class="flow-node"><div class="dot" style="background:#e74c3c;"></div> RPi Sensors</div>
-    <span class="flow-arrow">&rarr;</span>
-    <div class="flow-node"><div class="dot" style="background:#f1c40f;"></div> SMS (2G)</div>
-    <span class="flow-arrow">&rarr;</span>
-    <div class="flow-node"><div class="dot" style="background:#3498db;"></div> AI Server</div>
-    <span class="flow-arrow">&rarr;</span>
-    <div class="flow-node"><div class="dot" style="background:#7cfc00;"></div> Farmer's Phone</div>
-  </div>
-
-  <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
-    <a href="demo.html" class="hero-cta">LAUNCH 3D DEMO</a>
-    <a href="contact.html" class="hero-cta" style="background:transparent; color:#7cfc00; border:2px solid #7cfc00;">GET A QUOTE</a>
+<!-- Landing overlay -->
+<div id="info-overlay">
+  <div class="info-card">
+    <h1>FARM SIM</h1>
+    <p>
+      A low-poly Tanzanian farming world. Tend your crops, raise animals,
+      and survive on the savanna.
+    </p>
+    <p style="font-size:13px; color:#666;">
+      Drag to orbit &bull; Scroll to zoom
+    </p>
+    <div class="start-hint">[ CLICK TO ENTER ]</div>
   </div>
 </div>
 
-<!-- ====== HOW IT WORKS ====== -->
-<section>
-  <h2>How It Works</h2>
-  <div class="cards">
-    <div class="card">
-      <span class="card-icon">1.</span>
-      <h3>Sense</h3>
-      <p>A Raspberry Pi Zero 2 W reads 5 sensor types: soil moisture, pH, soil temperature (DS18B20), air temp/humidity (DHT22), and NPK nutrients via RS485 Modbus. Powered by a 12V solar panel.</p>
-    </div>
-    <div class="card">
-      <span class="card-icon">2.</span>
-      <h3>Send via SMS</h3>
-      <p>Sensor data is serialized into compact JSON and sent as an SMS using AT commands over a SIM800L GSM module. Works on any Tanzanian carrier (Vodacom, Airtel) over basic 2G.</p>
-    </div>
-    <div class="card">
-      <span class="card-icon">3.</span>
-      <h3>AI Analysis</h3>
-      <p>The server receives the SMS, parses the JSON, fetches a 7-day weather forecast from Open-Meteo, then sends everything to an LLM (local Ollama or OpenRouter cloud) with an agronomist prompt.</p>
-    </div>
-    <div class="card">
-      <span class="card-icon">4.</span>
-      <h3>Advise the Farmer</h3>
-      <p>The AI generates a concise, actionable advisory (fits in 3-4 SMS messages) covering soil status, nutrients, recommended actions, crop suggestions, and planting timing. Sent back via SMS.</p>
+<div id="canvas-container">
+  <!-- HUD -->
+  <div id="hud">
+    <h1>FARM SIM</h1>
+  </div>
+
+  <!-- Nokia phone (logic preserved for later use) -->
+  <div id="nokia-container" onclick="toggleNokia()">
+    <div class="nokia-phone">
+      <div class="nokia-brand">NOKIA</div>
+      <div class="nokia-screen" id="nokia-screen">
+        <div class="sms-text" id="nokia-text">No new messages</div>
+      </div>
+      <div class="nokia-nav">
+        <div class="nokia-nav-btn"></div>
+        <div class="nokia-nav-center"></div>
+        <div class="nokia-nav-btn"></div>
+      </div>
+      <div class="nokia-keypad">
+        <div class="nokia-key">1</div><div class="nokia-key">2</div><div class="nokia-key">3</div>
+        <div class="nokia-key">4</div><div class="nokia-key">5</div><div class="nokia-key">6</div>
+        <div class="nokia-key">7</div><div class="nokia-key">8</div><div class="nokia-key">9</div>
+        <div class="nokia-key">*</div><div class="nokia-key">0</div><div class="nokia-key">#</div>
+      </div>
+      <div class="nokia-hint" id="nokia-hint">TAP TO READ SMS</div>
     </div>
   </div>
-</section>
+</div>
 
-<div class="divider"></div>
-
-<!-- ====== ARCHITECTURE ====== -->
-<section>
-  <h2>Architecture</h2>
-  <div class="arch-block"><span class="hl-green">[Farm / RPi Node]</span>                        <span class="hl-blue">[Server]</span>
-  Sensors &rarr; sensor_node.py             analysis_server.py
-              &boxur; Reads soil data              &boxur; Parses SMS JSON
-              &boxur; JSON via SMS <span class="hl-yellow">&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;&rarr;</span> &boxur; Fetches weather (Open-Meteo)
-                                              &boxur; Analyses with LLM
-                                              &boxur; Replies to farmer via SMS
-                                                      &boxv;
-                                               <span class="hl-green">[Farmer's phone]</span>
-                                               Receives plain-text
-                                               crop advisory</div>
-</section>
-
-<div class="divider"></div>
-
-<!-- ====== HARDWARE ====== -->
-<section>
-  <h2>Hardware</h2>
-  <table class="hw-table">
-    <thead>
-      <tr><th>COMPONENT</th><th>MODEL</th><th>PURPOSE</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>Microcontroller</td><td>Raspberry Pi Zero 2 W</td><td>Main controller</td></tr>
-      <tr><td>Moisture sensor</td><td>Capacitive (3.3V)</td><td>Soil moisture %</td></tr>
-      <tr><td>ADC</td><td>ADS1115 (I2C)</td><td>Reads moisture + pH analog</td></tr>
-      <tr><td>pH sensor</td><td>Analog pH probe + module</td><td>Soil pH level</td></tr>
-      <tr><td>Air temp/humidity</td><td>DHT22</td><td>Air conditions</td></tr>
-      <tr><td>Soil temperature</td><td>DS18B20 (1-Wire)</td><td>Soil temp</td></tr>
-      <tr><td>NPK sensor</td><td>RS485 Modbus RTU (JXBS-3001)</td><td>Nitrogen, Phosphorus, Potassium</td></tr>
-      <tr><td>GSM module</td><td>SIM800L / SIM7600</td><td>SMS communication</td></tr>
-      <tr><td>Power</td><td>12V solar + step-down to 5V</td><td>Off-grid power</td></tr>
-      <tr><td>SIM card</td><td>Any Tanzanian carrier</td><td>2G SMS</td></tr>
-    </tbody>
-  </table>
-</section>
-
-<div class="divider"></div>
-
-<!-- ====== SMS EXAMPLES ====== -->
-<section>
-  <h2>Example SMS</h2>
-  <div class="sms-examples">
-    <div class="sms-box">
-      <div class="sms-box-header send">NODE &rarr; SERVER (RAW JSON)</div>
-      <pre>{"node_id":"FARM001","timestamp":1718000000,
-"moisture_pct":34.2,"ph":6.1,
-"soil_temp_c":24.5,"air_temp_c":28.0,
-"air_humid_pct":72.0,
-"nitrogen_mg_kg":85,
-"phosphorus_mg_kg":30,
-"potassium_mg_kg":160}</pre>
-    </div>
-    <div class="sms-box">
-      <div class="sms-box-header recv">SERVER &rarr; FARMER (ADVISORY)</div>
-      <pre>SoilSMS 12/06 08:42 UTC
-STATUS: Soil is dry (34%) and slightly acidic (pH 6.1).
-NUTRIENTS: Nitrogen is low (85 mg/kg). Phosphorus and potassium are adequate.
-ACTION: Add nitrogen fertilizer before next rain. Do not irrigate this week as rain is expected.
-PLANT: Best suited for maize or beans.
-TIMING: Plant in 5-7 days after forecasted rain.</pre>
-    </div>
-  </div>
-</section>
-
-<div class="divider"></div>
-
-<!-- ====== SERVER MODES ====== -->
-<section>
-  <h2>Server Modes</h2>
-  <div class="cards" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
-    <div class="card">
-      <h3>Local AI (Ollama)</h3>
-      <p>Run Mistral or other models locally on the server. No API key needed, fully offline. Set <code style="color:#7cfc00;">USE_LOCAL_AI=true</code> in .env.</p>
-    </div>
-    <div class="card">
-      <h3>Cloud AI (OpenRouter)</h3>
-      <p>Use any model via OpenRouter API, including free tiers like Arcee Trinity Large. Set <code style="color:#3498db;">USE_LOCAL_AI=false</code> and provide your API key.</p>
-    </div>
-    <div class="card">
-      <h3>SMS: GSM Modem</h3>
-      <p>Direct serial connection to a SIM800L modem. Polls for incoming SMS every 60 seconds. No external dependencies.</p>
-    </div>
-    <div class="card">
-      <h3>SMS: Africa's Talking</h3>
-      <p>Use the Africa's Talking API as an SMS gateway. Runs a Flask webhook server for incoming messages.</p>
-    </div>
-  </div>
-</section>
-
-<footer>
-  <p>SoilSMS &mdash; Built for rural Tanzania, powered by open hardware and AI.</p>
-  <p style="margin-top:8px;">
-    <a href="demo.html">3D Demo</a> &nbsp;&middot;&nbsp;
-    <a href="contact.html">Contact &amp; Pricing</a> &nbsp;&middot;&nbsp;
-    <a href="support.html">Support</a>
-  </p>
-</footer>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="scene.js"></script>
+<script src="controls.js"></script>
+<script src="sms.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
