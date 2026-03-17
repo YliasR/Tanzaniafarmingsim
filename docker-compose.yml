@@ -42,8 +42,9 @@ services:
       - POSTGRES_USER=mijn_gebruiker
       - POSTGRES_PASSWORD=mijn_wachtwoord
       - USE_LOCAL_AI=true
-      - SMS_MODE=modem
-      - GSM_PORT=/dev/ttyAMA0
+      - SMS_MODE=httpsms
+      - httpsms_api_key=${httpsms_api_key}
+      - Ward_phone=${Ward_phone}
     volumes:
       - .:/app
     depends_on:
