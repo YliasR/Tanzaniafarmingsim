@@ -544,6 +544,431 @@ for (let i = 0; i < 5; i++) {
 }
 
 // ============================================================
+// Silly Animals
+// ============================================================
+
+// --- Chickens (near the hut, little round bodies with tiny heads) ---
+const chickens = [];
+function createChicken(x, z) {
+  const g = new THREE.Group();
+  // Body (round boi)
+  const body = new THREE.Mesh(
+    new THREE.SphereGeometry(0.25, 8, 6),
+    new THREE.MeshLambertMaterial({ color: 0xddaa55 })
+  );
+  body.position.y = 0.3;
+  body.scale.set(1, 0.8, 1.2);
+  g.add(body);
+  // Head
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.12, 6, 6),
+    new THREE.MeshLambertMaterial({ color: 0xddaa55 })
+  );
+  head.position.set(0, 0.5, 0.2);
+  g.add(head);
+  // Beak
+  const beak = new THREE.Mesh(
+    new THREE.ConeGeometry(0.04, 0.1, 4),
+    new THREE.MeshLambertMaterial({ color: 0xff8800 })
+  );
+  beak.position.set(0, 0.48, 0.33);
+  beak.rotation.x = -Math.PI / 2;
+  g.add(beak);
+  // Comb (red wobbly bit)
+  const comb = new THREE.Mesh(
+    new THREE.BoxGeometry(0.02, 0.08, 0.1),
+    new THREE.MeshLambertMaterial({ color: 0xee2222 })
+  );
+  comb.position.set(0, 0.6, 0.2);
+  g.add(comb);
+  // Legs (two sticks)
+  for (let i = -1; i <= 1; i += 2) {
+    const leg = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.015, 0.015, 0.2, 4),
+      new THREE.MeshLambertMaterial({ color: 0xcc8800 })
+    );
+    leg.position.set(i * 0.08, 0.1, 0);
+    g.add(leg);
+  }
+  g.position.set(x, 0, z);
+  g.rotation.y = Math.random() * Math.PI * 2;
+  scene.add(g);
+  chickens.push({
+    mesh: g,
+    baseX: x, baseZ: z,
+    wanderAngle: Math.random() * Math.PI * 2,
+    wanderSpeed: 0.005 + Math.random() * 0.01,
+    peckTimer: Math.random() * 5
+  });
+}
+// Scatter chickens near the hut
+[[-16, 10], [-17, 13], [-19, 11], [-15, 14], [-20, 10]].forEach(([x, z]) => createChicken(x, z));
+
+// --- Goats (derpy rectangles with horns, wandering the savanna) ---
+const goats = [];
+function createGoat(x, z) {
+  const g = new THREE.Group();
+  // Body (long box)
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(0.8, 0.5, 0.4),
+    new THREE.MeshLambertMaterial({ color: Math.random() > 0.5 ? 0xeeeeee : 0x888877 })
+  );
+  body.position.y = 0.55;
+  g.add(body);
+  // Head (smaller box, tilted forward)
+  const head = new THREE.Mesh(
+    new THREE.BoxGeometry(0.25, 0.25, 0.3),
+    new THREE.MeshLambertMaterial({ color: 0xddddcc })
+  );
+  head.position.set(0.45, 0.7, 0);
+  g.add(head);
+  // Horns (two tiny cones going backwards)
+  for (let i = -1; i <= 1; i += 2) {
+    const horn = new THREE.Mesh(
+      new THREE.ConeGeometry(0.03, 0.2, 4),
+      new THREE.MeshLambertMaterial({ color: 0x999988 })
+    );
+    horn.position.set(0.45, 0.9, i * 0.1);
+    horn.rotation.z = 0.4;
+    g.add(horn);
+  }
+  // Legs (4 sticks)
+  [[-0.25, -0.15], [-0.25, 0.15], [0.25, -0.15], [0.25, 0.15]].forEach(([lx, lz]) => {
+    const leg = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.03, 0.35, 4),
+      new THREE.MeshLambertMaterial({ color: 0x665544 })
+    );
+    leg.position.set(lx, 0.17, lz);
+    g.add(leg);
+  });
+  // Tiny tail (sticking up)
+  const tail = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.015, 0.02, 0.15, 4),
+    new THREE.MeshLambertMaterial({ color: 0xddddcc })
+  );
+  tail.position.set(-0.45, 0.75, 0);
+  tail.rotation.z = -0.6;
+  g.add(tail);
+  g.position.set(x, 0, z);
+  g.rotation.y = Math.random() * Math.PI * 2;
+  g.castShadow = true;
+  scene.add(g);
+  goats.push({
+    mesh: g,
+    baseX: x, baseZ: z,
+    wanderAngle: Math.random() * Math.PI * 2,
+    wanderSpeed: 0.003 + Math.random() * 0.005,
+    wanderRadius: 2 + Math.random() * 3
+  });
+}
+[[15, 8], [13, 12], [-12, -14], [18, -8], [-25, 5], [8, -12]].forEach(([x, z]) => createGoat(x, z));
+
+// --- Cows (chonky bois, grazing lazily) ---
+const cows = [];
+function createCow(x, z) {
+  const g = new THREE.Group();
+  const isSpotted = Math.random() > 0.5;
+  const bodyColor = isSpotted ? 0xfaf0e6 : 0x6b4226;
+  // Body (big chonk)
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(1.4, 0.8, 0.7),
+    new THREE.MeshLambertMaterial({ color: bodyColor })
+  );
+  body.position.y = 0.9;
+  g.add(body);
+  // Spots (if spotted)
+  if (isSpotted) {
+    for (let s = 0; s < 3; s++) {
+      const spot = new THREE.Mesh(
+        new THREE.CircleGeometry(0.12 + Math.random() * 0.1, 6),
+        new THREE.MeshLambertMaterial({ color: 0x3a2010, side: THREE.DoubleSide })
+      );
+      spot.position.set(-0.3 + Math.random() * 0.6, 0.9 + (Math.random() - 0.5) * 0.3, 0.351);
+      g.add(spot);
+    }
+  }
+  // Head
+  const head = new THREE.Mesh(
+    new THREE.BoxGeometry(0.35, 0.35, 0.45),
+    new THREE.MeshLambertMaterial({ color: bodyColor })
+  );
+  head.position.set(0.8, 1.0, 0);
+  g.add(head);
+  // Snout (pink-ish)
+  const snout = new THREE.Mesh(
+    new THREE.BoxGeometry(0.2, 0.15, 0.3),
+    new THREE.MeshLambertMaterial({ color: 0xddaaaa })
+  );
+  snout.position.set(0.97, 0.9, 0);
+  g.add(snout);
+  // Horns
+  for (let i = -1; i <= 1; i += 2) {
+    const horn = new THREE.Mesh(
+      new THREE.ConeGeometry(0.035, 0.25, 5),
+      new THREE.MeshLambertMaterial({ color: 0xccbb99 })
+    );
+    horn.position.set(0.75, 1.3, i * 0.18);
+    horn.rotation.z = i * 0.3;
+    g.add(horn);
+  }
+  // Legs (4 chunky sticks)
+  [[-0.45, -0.25], [-0.45, 0.25], [0.45, -0.25], [0.45, 0.25]].forEach(([lx, lz]) => {
+    const leg = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.06, 0.55, 5),
+      new THREE.MeshLambertMaterial({ color: bodyColor })
+    );
+    leg.position.set(lx, 0.27, lz);
+    g.add(leg);
+  });
+  // Tail (dangly)
+  const tail = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.015, 0.025, 0.6, 4),
+    new THREE.MeshLambertMaterial({ color: bodyColor })
+  );
+  tail.position.set(-0.75, 0.8, 0);
+  tail.rotation.z = 0.5;
+  g.add(tail);
+  g.position.set(x, 0, z);
+  g.rotation.y = Math.random() * Math.PI * 2;
+  g.castShadow = true;
+  scene.add(g);
+  cows.push({
+    mesh: g,
+    wanderAngle: Math.random() * Math.PI * 2,
+    wanderSpeed: 0.001 + Math.random() * 0.002,
+    headBob: Math.random() * Math.PI
+  });
+}
+[[-30, 2], [-28, -3], [25, 20], [28, 22]].forEach(([x, z]) => createCow(x, z));
+
+// --- Giraffe (tall lanky boi in the distance) ---
+function createGiraffe(x, z) {
+  const g = new THREE.Group();
+  // Body
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(1.6, 0.7, 0.6),
+    new THREE.MeshLambertMaterial({ color: 0xdaa520 })
+  );
+  body.position.y = 2.8;
+  g.add(body);
+  // Neck (long!!)
+  const neck = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.15, 0.2, 2.5, 6),
+    new THREE.MeshLambertMaterial({ color: 0xdaa520 })
+  );
+  neck.position.set(0.6, 4.2, 0);
+  neck.rotation.z = 0.2;
+  g.add(neck);
+  // Head (smol)
+  const head = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.2, 0.25),
+    new THREE.MeshLambertMaterial({ color: 0xdaa520 })
+  );
+  head.position.set(0.9, 5.5, 0);
+  g.add(head);
+  // Ossicones (cute lil horns)
+  for (let i = -1; i <= 1; i += 2) {
+    const oss = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.025, 0.025, 0.25, 4),
+      new THREE.MeshLambertMaterial({ color: 0x8b6914 })
+    );
+    oss.position.set(0.85, 5.75, i * 0.08);
+    g.add(oss);
+    // Tip
+    const ossTip = new THREE.Mesh(
+      new THREE.SphereGeometry(0.04, 6, 6),
+      new THREE.MeshLambertMaterial({ color: 0x3a2010 })
+    );
+    ossTip.position.set(0.85, 5.88, i * 0.08);
+    g.add(ossTip);
+  }
+  // Spots on body
+  for (let s = 0; s < 6; s++) {
+    const spot = new THREE.Mesh(
+      new THREE.CircleGeometry(0.1 + Math.random() * 0.08, 5),
+      new THREE.MeshLambertMaterial({ color: 0x8b4513, side: THREE.DoubleSide })
+    );
+    spot.position.set(-0.5 + Math.random() * 1.0, 2.6 + Math.random() * 0.4, 0.301);
+    g.add(spot);
+  }
+  // Legs (4 long stilts)
+  [[-0.5, -0.2], [-0.5, 0.2], [0.5, -0.2], [0.5, 0.2]].forEach(([lx, lz]) => {
+    const leg = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.07, 2.5, 5),
+      new THREE.MeshLambertMaterial({ color: 0xdaa520 })
+    );
+    leg.position.set(lx, 1.25, lz);
+    g.add(leg);
+  });
+  // Tail
+  const tail = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.015, 0.03, 0.8, 4),
+    new THREE.MeshLambertMaterial({ color: 0xdaa520 })
+  );
+  tail.position.set(-0.9, 2.7, 0);
+  tail.rotation.z = 0.6;
+  g.add(tail);
+  // Tail tuft
+  const tuft = new THREE.Mesh(
+    new THREE.SphereGeometry(0.06, 5, 5),
+    new THREE.MeshLambertMaterial({ color: 0x3a2010 })
+  );
+  tuft.position.set(-1.3, 2.3, 0);
+  g.add(tuft);
+  g.position.set(x, 0, z);
+  g.rotation.y = Math.random() * Math.PI * 2;
+  g.castShadow = true;
+  scene.add(g);
+  return g;
+}
+const giraffe1 = createGiraffe(-35, -25);
+const giraffe2 = createGiraffe(40, -30);
+
+// --- Hippo (chunky potato in the distance, maybe near a puddle) ---
+function createHippo(x, z) {
+  const g = new THREE.Group();
+  // Body (absolute unit)
+  const body = new THREE.Mesh(
+    new THREE.SphereGeometry(0.9, 8, 6),
+    new THREE.MeshLambertMaterial({ color: 0x8a7070 })
+  );
+  body.position.y = 0.7;
+  body.scale.set(1.4, 0.9, 1);
+  g.add(body);
+  // Head (big snout)
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.5, 8, 6),
+    new THREE.MeshLambertMaterial({ color: 0x8a7070 })
+  );
+  head.position.set(1.1, 0.8, 0);
+  head.scale.set(1.2, 0.8, 1);
+  g.add(head);
+  // Nostrils (two bumps on top of snout)
+  for (let i = -1; i <= 1; i += 2) {
+    const nostril = new THREE.Mesh(
+      new THREE.SphereGeometry(0.08, 6, 6),
+      new THREE.MeshLambertMaterial({ color: 0x6a5555 })
+    );
+    nostril.position.set(1.5, 1.0, i * 0.12);
+    g.add(nostril);
+  }
+  // Eyes (on top of head, peeking)
+  for (let i = -1; i <= 1; i += 2) {
+    const eye = new THREE.Mesh(
+      new THREE.SphereGeometry(0.06, 6, 6),
+      new THREE.MeshLambertMaterial({ color: 0x111111 })
+    );
+    eye.position.set(1.0, 1.15, i * 0.2);
+    g.add(eye);
+  }
+  // Ears (tiny)
+  for (let i = -1; i <= 1; i += 2) {
+    const ear = new THREE.Mesh(
+      new THREE.SphereGeometry(0.07, 5, 5),
+      new THREE.MeshLambertMaterial({ color: 0x7a6060 })
+    );
+    ear.position.set(0.7, 1.2, i * 0.35);
+    g.add(ear);
+  }
+  // Stubby legs
+  [[-0.4, -0.35], [-0.4, 0.35], [0.5, -0.35], [0.5, 0.35]].forEach(([lx, lz]) => {
+    const leg = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.12, 0.35, 6),
+      new THREE.MeshLambertMaterial({ color: 0x7a6565 })
+    );
+    leg.position.set(lx, 0.17, lz);
+    g.add(leg);
+  });
+  // Tiny puddle underneath
+  const puddle = new THREE.Mesh(
+    new THREE.CircleGeometry(2, 12),
+    new THREE.MeshLambertMaterial({ color: 0x5a7a6a, transparent: true, opacity: 0.4 })
+  );
+  puddle.rotation.x = -Math.PI / 2;
+  puddle.position.y = 0.02;
+  g.add(puddle);
+  g.position.set(x, 0, z);
+  g.rotation.y = Math.random() * Math.PI * 2;
+  scene.add(g);
+  return g;
+}
+const hippo = createHippo(35, 12);
+
+// --- Elephant (big gentle giant far away) ---
+function createElephant(x, z) {
+  const g = new THREE.Group();
+  const eMat = new THREE.MeshLambertMaterial({ color: 0x7a7a7a });
+  // Body
+  const body = new THREE.Mesh(new THREE.SphereGeometry(1.2, 8, 6), eMat);
+  body.position.y = 1.6;
+  body.scale.set(1.3, 1, 1);
+  g.add(body);
+  // Head
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.65, 8, 6), eMat);
+  head.position.set(1.4, 2.0, 0);
+  g.add(head);
+  // Trunk (curved cylinder-ish, made of a few segments)
+  const trunkParts = [
+    { y: 1.5, z: 0, rx: 0.3 },
+    { y: 1.1, z: 0.15, rx: 0.6 },
+    { y: 0.7, z: 0.4, rx: 0.9 },
+  ];
+  trunkParts.forEach(tp => {
+    const seg = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.12, 0.5, 6),
+      eMat
+    );
+    seg.position.set(1.9, tp.y, tp.z);
+    seg.rotation.x = tp.rx;
+    g.add(seg);
+  });
+  // Ears (big floppy discs)
+  for (let i = -1; i <= 1; i += 2) {
+    const ear = new THREE.Mesh(
+      new THREE.CircleGeometry(0.6, 8),
+      new THREE.MeshLambertMaterial({ color: 0x8a8080, side: THREE.DoubleSide })
+    );
+    ear.position.set(1.0, 2.2, i * 0.65);
+    ear.rotation.y = i * 0.3;
+    g.add(ear);
+  }
+  // Tusks
+  for (let i = -1; i <= 1; i += 2) {
+    const tusk = new THREE.Mesh(
+      new THREE.ConeGeometry(0.04, 0.5, 5),
+      new THREE.MeshLambertMaterial({ color: 0xfffff0 })
+    );
+    tusk.position.set(1.7, 1.5, i * 0.2);
+    tusk.rotation.z = 0.2;
+    tusk.rotation.x = i * 0.15;
+    g.add(tusk);
+  }
+  // Legs (4 pillars)
+  [[-0.5, -0.4], [-0.5, 0.4], [0.7, -0.4], [0.7, 0.4]].forEach(([lx, lz]) => {
+    const leg = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.18, 0.2, 1.2, 6),
+      eMat
+    );
+    leg.position.set(lx, 0.6, lz);
+    g.add(leg);
+  });
+  // Tail
+  const tail = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.02, 0.04, 0.7, 4),
+    eMat
+  );
+  tail.position.set(-1.4, 1.5, 0);
+  tail.rotation.z = 0.7;
+  g.add(tail);
+  g.position.set(x, 0, z);
+  g.rotation.y = Math.random() * Math.PI * 2;
+  g.castShadow = true;
+  scene.add(g);
+  return g;
+}
+const elephant = createElephant(-40, -35);
+
+// ============================================================
 // SMS data flow particles
 // ============================================================
 const particles = [];

@@ -68,6 +68,66 @@ function animate() {
   // Gentle sway on the stake
   rpiGroup.rotation.z = Math.sin(time * 0.8) * 0.01;
 
+  // --- Animate Animals ---
+
+  // Chickens: wander in circles, peck occasionally
+  chickens.forEach(c => {
+    c.wanderAngle += c.wanderSpeed;
+    c.peckTimer -= 0.016;
+    const wx = c.baseX + Math.cos(c.wanderAngle) * 1.5;
+    const wz = c.baseZ + Math.sin(c.wanderAngle) * 1.5;
+    c.mesh.position.x = wx;
+    c.mesh.position.z = wz;
+    c.mesh.rotation.y = c.wanderAngle + Math.PI / 2;
+    // Pecking: head dips down
+    if (c.peckTimer < 0.5 && c.peckTimer > 0) {
+      c.mesh.rotation.x = Math.sin(c.peckTimer * 12) * 0.3;
+    } else {
+      c.mesh.rotation.x = 0;
+    }
+    if (c.peckTimer < 0) c.peckTimer = 2 + Math.random() * 4;
+    // Tiny hop
+    c.mesh.position.y = Math.abs(Math.sin(time * 6 + c.wanderAngle * 3)) * 0.03;
+  });
+
+  // Goats: wander around, occasionally stop
+  goats.forEach(g => {
+    g.wanderAngle += g.wanderSpeed;
+    const wx = g.baseX + Math.cos(g.wanderAngle) * g.wanderRadius;
+    const wz = g.baseZ + Math.sin(g.wanderAngle) * g.wanderRadius;
+    g.mesh.position.x = wx;
+    g.mesh.position.z = wz;
+    g.mesh.rotation.y = g.wanderAngle + Math.PI / 2;
+    // Slight bobbing
+    g.mesh.position.y = Math.sin(time * 3 + g.wanderAngle) * 0.02;
+  });
+
+  // Cows: very slow drift, head bob for grazing
+  cows.forEach(c => {
+    c.wanderAngle += c.wanderSpeed;
+    c.mesh.rotation.y += c.wanderSpeed * 0.5;
+    c.headBob += 0.02;
+    // Gentle grazing head motion
+    c.mesh.children[1].rotation.x = Math.sin(c.headBob) * 0.15;
+  });
+
+  // Giraffes: gentle sway
+  [giraffe1, giraffe2].forEach(g => {
+    g.rotation.y += 0.0003;
+    // Neck sway
+    g.children[1].rotation.x = Math.sin(time * 0.5) * 0.05;
+  });
+
+  // Hippo: lazy ear wiggle and breathing
+  hippo.scale.y = 1 + Math.sin(time * 0.8) * 0.02;
+  hippo.children[5].rotation.z = Math.sin(time * 2) * 0.1; // ear wiggle
+  hippo.children[6].rotation.z = Math.sin(time * 2 + 1) * 0.1;
+
+  // Elephant: slow turn and ear flap
+  elephant.rotation.y += 0.0002;
+  elephant.children[6].rotation.y = Math.sin(time * 1.5) * 0.2 - 0.3;  // left ear
+  elephant.children[7].rotation.y = Math.sin(time * 1.5 + 0.5) * 0.2 + 0.3;  // right ear
+
   // Birds circling lazily
   birds.forEach(b => {
     b.angle += b.speed;
