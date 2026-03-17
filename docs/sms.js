@@ -76,6 +76,22 @@ function updateSensors() {
   S.k        = Math.max(50, Math.min(300, S.k + (Math.random() - 0.5)));
 }
 
+function getSoilState() {
+  return {
+    moisture: S.moisture,
+    ph: S.ph,
+    soilTemp: S.soilTemp,
+    airTemp: S.airTemp,
+    humid: S.humid,
+    n: S.n,
+    p: S.p,
+    k: S.k,
+  };
+}
+
+window.getSoilState = getSoilState;
+window.updateSoilSensors = updateSensors;
+
 // ============================================================
 // AI / LLM — preserved for later use
 // Call runAnalysis() from game code; key auto-read from settings

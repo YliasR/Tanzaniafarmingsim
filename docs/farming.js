@@ -15,11 +15,59 @@ const SEED_TYPES = [
   { name: 'GROUNDNUTS', stalkColor: 0x8a7028, leafColor: 0xaaaa38, matureH: 0.5 },
 ];
 
+const SOIL_RULES = [
+  {
+    thrive: { moisture: [45, 68], ph: [5.8, 7.0], n: [90, 180] },
+    viable: { moisture: [28, 82], ph: [5.0, 7.8], n: [40, 260] },
+    lockReason: 'soil too harsh for maize right now',
+    thriveBonus: 0.15,
+  },
+  {
+    thrive: { moisture: [42, 62], ph: [6.0, 7.2], n: [60, 140] },
+    viable: { moisture: [30, 78], ph: [5.6, 7.8], n: [35, 220] },
+    lockReason: 'beans need steadier pH/moisture',
+    thriveBonus: 0.08,
+  },
+  {
+    thrive: { moisture: [30, 52], ph: [5.6, 7.8], n: [45, 130] },
+    viable: { moisture: [20, 72], ph: [5.0, 8.4], n: [25, 220] },
+    lockReason: 'sorghum cannot establish in this soil state',
+    thriveBonus: 0.20,
+  },
+  {
+    thrive: { moisture: [34, 56], ph: [5.4, 7.2], n: [40, 130] },
+    viable: { moisture: [24, 72], ph: [5.0, 8.0], n: [20, 220] },
+    lockReason: 'cassava cuttings will fail in this soil',
+    thriveBonus: 0.10,
+  },
+  {
+    thrive: { moisture: [36, 58], ph: [5.8, 7.0], n: [40, 100] },
+    viable: { moisture: [28, 75], ph: [5.4, 7.6], n: [20, 160] },
+    lockReason: 'groundnuts need balanced soil to germinate',
+    thriveBonus: 0.05,
+  },
+];
+
 // ---- Economy (Phase 6) ----
 const seedInventory = [5, 3, 3, 2, 2];   // starting seeds per type
 const cropInventory = [0, 0, 0, 0, 0];   // harvested crops (sell at market)
-const ownedTools    = { hoe: true, wateringCan: false };
+const ownedTools    = { hoe: true, wateringCan: false, machete: false, axe: false };
 let fertilizerCount = 0;
+
+// ---- Animal farming (Phase 6 expanded) ----
+let animalFeedCount = 0;
+let fencingOwned    = false;
+let ownedChickens   = 5;   // start with 5 chickens (matching scene spawns)
+let ownedCows       = 4;   // start with 4 cows (matching scene spawns)
+const animalProducts = { eggs: 0, milk: 0 };
+
+// Egg / milk production timers (real seconds)
+let eggTimer  = 0;
+let milkTimer = 0;
+const EGG_INTERVAL  = 45;  // seconds between egg layings (per chicken)
+const MILK_INTERVAL = 70;  // seconds between milkings (per cow)
+let eggCooldown  = EGG_INTERVAL;
+let milkCooldown = MILK_INTERVAL;
 
 let selectedSeed = 0;
 let farmRealTime  = 0;
@@ -193,6 +241,110 @@ function buildCropMesh(seedType, stage) {
   return g;
 }
 
+function inRange(v, range) {
+  return v >= range[0] && v <= range[1];
+}
+
+function getSoilSnapshot() {
+  if (typeof getSoilState === 'function') return getSoilState();
+  return null;
+}
+
+function hardModeOn() {
+  if (typeof isHardModeEnabled === 'function') return isHardModeEnabled();
+  return localStorage.getItem('farmsim_hard_mode') === '1';
+}
+
+function getLenientRange(metric, range) {
+  if (metric === 'moisture') return [range[0] - 10, range[1] + 10];
+  if (metric === 'ph') return [range[0] - 0.5, range[1] + 0.5];
+  if (metric === 'n') return [range[0] - 40, range[1] + 40];
+  return range;
+}
+
+function getRuleRange(rule, metric, kind, hardMode) {
+  const r = rule[kind][metric];
+  return hardMode ? r : getLenientRange(metric, r);
+}
+
+function canPlantSeed(seedType) {
+  const hardMode = hardModeOn();
+  const soil = getSoilSnapshot();
+  if (!soil) return { ok: true, reason: '' };
+  const rule = SOIL_RULES[seedType];
+  if (!rule) return { ok: true, reason: '' };
+
+  const moistureOk = inRange(soil.moisture, getRuleRange(rule, 'moisture', 'viable', hardMode));
+  const phOk = inRange(soil.ph, getRuleRange(rule, 'ph', 'viable', hardMode));
+  const nOk = inRange(soil.n, getRuleRange(rule, 'n', 'viable', hardMode));
+
+  if (hardMode) {
+    if (moistureOk && phOk && nOk) return { ok: true, reason: '' };
+  } else {
+    const okCount = (moistureOk ? 1 : 0) + (phOk ? 1 : 0) + (nOk ? 1 : 0);
+    if (okCount >= 2) return { ok: true, reason: '' };
+  }
+
+  return { ok: false, reason: rule.lockReason };
+}
+
+function getGrowthSpeedMultiplier(seedType) {
+  const hardMode = hardModeOn();
+  const soil = getSoilSnapshot();
+  if (!soil) return 1;
+  const rule = SOIL_RULES[seedType];
+  if (!rule) return 1;
+
+  const metrics = [
+    {
+      value: soil.moisture,
+      thrive: getRuleRange(rule, 'moisture', 'thrive', hardMode),
+      viable: getRuleRange(rule, 'moisture', 'viable', hardMode),
+    },
+    {
+      value: soil.ph,
+      thrive: getRuleRange(rule, 'ph', 'thrive', hardMode),
+      viable: getRuleRange(rule, 'ph', 'viable', hardMode),
+    },
+    {
+      value: soil.n,
+      thrive: getRuleRange(rule, 'n', 'thrive', hardMode),
+      viable: getRuleRange(rule, 'n', 'viable', hardMode),
+    },
+  ];
+
+  let score = 0;
+  let badCount = 0;
+  for (const m of metrics) {
+    if (inRange(m.value, m.thrive)) {
+      score += 1;
+    } else if (inRange(m.value, m.viable)) {
+      score += 0.5;
+    } else {
+      score += hardMode ? 0.08 : 0.30;
+      badCount++;
+    }
+  }
+
+  let mult;
+  if (hardMode) {
+    mult = 0.45 + score / metrics.length + rule.thriveBonus;
+    if (badCount >= 2) mult *= 0.2;
+    return Math.max(0.08, Math.min(1.9, mult));
+  }
+
+  mult = 0.78 + (score / metrics.length) * 0.35 + rule.thriveBonus * 0.35;
+  if (badCount >= 2) mult *= 0.85;
+  return Math.max(0.65, Math.min(1.3, mult));
+}
+
+function getStageDuration(seedType, stageIdx, cellGrowMult) {
+  const base = STAGE_TIMES[stageIdx] * 3;
+  const mult = getGrowthSpeedMultiplier(seedType);
+  const landMult = cellGrowMult || 1.0; // land type bonus (0.7 savanna, 1.4 riverside)
+  return base / (mult * landMult);
+}
+
 // ============================================================
 // Plant / Harvest
 // ============================================================
@@ -202,7 +354,7 @@ function plantCell(idx) {
   cell.seedType    = selectedSeed;
   cell.stage       = 0;
   cell.watered     = false;
-  cell.nextStageAt = farmRealTime + STAGE_TIMES[0] * 3; // slow until watered
+  cell.nextStageAt = farmRealTime + getStageDuration(selectedSeed, 0, cell.growMult);
   if (cell.mesh) scene.remove(cell.mesh);
   cell.mesh = buildCropMesh(selectedSeed, 0);
   cell.mesh.position.set(cell.cx, FARM_Y, cell.cz);
@@ -240,6 +392,10 @@ function cellAt(wx, wz) {
 function updateFarming(dt) {
   farmRealTime += dt;
 
+  // ---- Auto-water from upgrades ----
+  if (typeof applyWaterPump === 'function') applyWaterPump();
+  if (typeof applyRiversideWater === 'function') applyRiversideWater();
+
   // ---- Grow crops ----
   for (const cell of farmCells) {
     if (cell.stage < 0 || cell.stage >= 3) continue;
@@ -250,7 +406,7 @@ function updateFarming(dt) {
       cell.mesh = buildCropMesh(cell.seedType, cell.stage);
       cell.mesh.position.set(cell.cx, FARM_Y, cell.cz);
       scene.add(cell.mesh);
-      if (cell.stage < 3) cell.nextStageAt = farmRealTime + STAGE_TIMES[cell.stage] * 3;
+      if (cell.stage < 3) cell.nextStageAt = farmRealTime + getStageDuration(cell.seedType, cell.stage, cell.growMult);
     }
   }
 
@@ -275,9 +431,12 @@ function updateFarming(dt) {
       if (cell.stage === -1) {
         _hlMat.color.setHex(0x88ff88);
         const hasSeed = seedInventory[selectedSeed] > 0;
-        const tip = hasSeed
-          ? `[F] Plant ${SEED_TYPES[selectedSeed].name}  (${seedInventory[selectedSeed]} left)`
-          : `No ${SEED_TYPES[selectedSeed].name} seeds!`;
+        const plantCheck = canPlantSeed(selectedSeed);
+        const tip = !hasSeed
+          ? `No ${SEED_TYPES[selectedSeed].name} seeds!`
+          : !plantCheck.ok
+            ? `Soil lock: ${plantCheck.reason}`
+            : `[F] Plant ${SEED_TYPES[selectedSeed].name}  (${seedInventory[selectedSeed]} left)`;
         if (tooltipEl) { tooltipEl.textContent = tip; tooltipEl.style.display = 'block'; }
       } else if (cell.stage === 3) {
         _hlMat.color.setHex(0xffff44);
@@ -319,6 +478,7 @@ window.addEventListener('keydown', e => {
       // Plant — need hoe + seeds
       if (!ownedTools.hoe) return;
       if (seedInventory[selectedSeed] <= 0) return;
+      if (!canPlantSeed(selectedSeed).ok) return;
       seedInventory[selectedSeed]--;
       plantCell(hoveredCell);
       updateSeedHUD();
@@ -345,7 +505,7 @@ window.addEventListener('keydown', e => {
       cell.mesh = buildCropMesh(cell.seedType, cell.stage);
       cell.mesh.position.set(cell.cx, FARM_Y, cell.cz);
       scene.add(cell.mesh);
-      if (cell.stage < 3) cell.nextStageAt = farmRealTime + STAGE_TIMES[cell.stage] * 3;
+      if (cell.stage < 3) cell.nextStageAt = farmRealTime + getStageDuration(cell.seedType, cell.stage);
     }
   }
 });
@@ -361,3 +521,48 @@ function updateSeedHUD() {
   });
 }
 updateSeedHUD();
+
+// ============================================================
+// Animal production — eggs & milk
+// ============================================================
+function updateAnimalProduction(dt) {
+  // Feed bonus: 2x production speed when troughs have feed in them
+  const fed = (typeof troughFeedStored !== 'undefined') && troughFeedStored > 0;
+  const feedBonus = fed ? 2.0 : 1.0;
+
+  // Eggs from chickens
+  if (ownedChickens > 0) {
+    eggCooldown -= dt * feedBonus;
+    if (eggCooldown <= 0) {
+      const laid = ownedChickens;
+      animalProducts.eggs += laid;
+      eggCooldown = EGG_INTERVAL;
+      _flashAnimalProduct('eggs', laid);
+    }
+  }
+
+  // Milk from cows
+  if (ownedCows > 0) {
+    milkCooldown -= dt * feedBonus;
+    if (milkCooldown <= 0) {
+      const milked = ownedCows;
+      animalProducts.milk += milked;
+      milkCooldown = MILK_INTERVAL;
+      _flashAnimalProduct('milk', milked);
+    }
+  }
+
+  // Update feed troughs (depletion + visuals)
+  if (typeof updateFeedTroughs === 'function') updateFeedTroughs(dt);
+}
+
+// Quick floating text for egg/milk collection
+function _flashAnimalProduct(type, amount) {
+  const tipEl = document.getElementById('farm-tooltip');
+  if (!tipEl) return;
+  const label = type === 'eggs' ? 'Eggs' : 'Milk';
+  tipEl.textContent = `+${amount} ${label} collected!`;
+  tipEl.style.display = 'block';
+  clearTimeout(tipEl._apTimer);
+  tipEl._apTimer = setTimeout(() => { tipEl.style.display = 'none'; }, 2500);
+}

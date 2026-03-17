@@ -6,69 +6,69 @@
 
 ## Phase 1: Fork & Clean
 
-- [ ] Fork the repo into a new project (e.g. `soilsms-farm-game`)
-- [ ] Delete all non-game files: `index.html`, `contact.html`, `support.html`, server code, IoT code
-- [ ] Keep: `demo.html`, `style.css`, `scene.js`, `controls.js`, `app.js`, `sms.js`
-- [ ] Rename `demo.html` → `index.html`
-- [ ] Strip the sensor panel, AI panel, Nokia phone, SMS logic, and HUD overlays
-- [ ] Remove helpdesk/contact links and footer
-- [ ] Result: clean Three.js scene with terrain, animals, trees, buildings, sky
+- [x] Fork the repo into a new project (e.g. `soilsms-farm-game`)
+- [x] Delete all non-game files: `index.html`, `contact.html`, `support.html`, server code, IoT code
+- [x] Keep: `demo.html`, `style.css`, `scene.js`, `controls.js`, `app.js`, `sms.js`
+- [x] Rename `demo.html` → `index.html`
+- [x] Strip the sensor panel, AI panel, Nokia phone, SMS logic, and HUD overlays
+- [x] Remove helpdesk/contact links and footer
+- [x] Result: clean Three.js scene with terrain, animals, trees, buildings, sky
 
 ---
 
 ## Phase 2: First Person Controller
 
-- [ ] Replace the orbit camera with a first-person camera (pointer lock)
-- [ ] WASD movement, mouse look, spacebar jump
-- [ ] Collision detection with ground (walk on terrain, follow height map)
-- [ ] Basic collision with buildings/trees (don't walk through them)
-- [ ] Sprint (shift key), crouch if needed later
-- [ ] Player "body" — shadow on ground, maybe visible hands/tool
+- [x] Replace the orbit camera with a first-person camera (pointer lock)
+- [x] WASD movement, mouse look, spacebar jump
+- [x] Collision detection with ground (walk on terrain, follow height map)
+- [x] Basic collision with buildings/trees (don't walk through them)
+- [x] Sprint (shift key), crouch if needed later
+- [x] Player "body" — shadow on ground, maybe visible hands/tool
 
 ---
 
 ## Phase 3: Day/Night Cycle
 
-- [ ] Sun moves across the sky over time (rotate directional light)
-- [ ] Sky color transitions: dawn (orange) → day (blue) → dusk (red) → night (dark blue)
-- [ ] Moonlight at night (dim blue directional light)
-- [ ] Stars at night (particle system or skybox)
-- [ ] Ambient light dims at night, fog changes color
-- [ ] Game clock: 1 real minute = 1 game hour (24 min full cycle), tweak to feel right
-- [ ] Animals sleep at night / different behavior
+- [x] Sun moves across the sky over time (rotate directional light)
+- [x] Sky color transitions: dawn (orange) → day (blue) → dusk (red) → night (dark blue)
+- [x] Moonlight at night (dim blue directional light)
+- [x] Stars at night (particle system or skybox)
+- [x] Ambient light dims at night, fog changes color
+- [x] Game clock: 1 real minute = 1 game hour (24 min full cycle), tweak to feel right
+- [x] Animals sleep at night / different behavior
 
 ---
 
 ## Phase 4: Farming & Planting
 
-- [ ] Inventory system (hotbar at bottom of screen)
-- [ ] Seeds: maize, beans, cassava, sunflower, sorghum
-- [ ] Planting: look at tilled soil + click to plant
-- [ ] Growth stages: seed → sprout → half-grown → ready (time-based, tied to game clock)
-- [ ] Watering: optional, speeds up growth (carry water bucket from well/river)
-- [ ] Harvesting: click mature crop to collect into inventory
-- [ ] Crop sell value varies (simple economy)
-- [ ] Soil quality affects yield (tie into the existing sensor data concept)
+- [x] Inventory system (hotbar at bottom of screen)
+- [x] Seeds: maize, beans, cassava, sorghum
+- [x] Planting: look at tilled soil + click to plant
+- [x] Growth stages: seed → sprout → half-grown → ready (time-based, tied to game clock)
+- [x] Watering: optional, speeds up growth (carry water bucket from well/river)
+- [x] Harvesting: click mature crop to collect into inventory
+- [x] Crop sell value varies (simple economy)
+- [x] Soil quality affects yield (tie into the existing sensor data concept)
 
 ---
 
 ## Phase 5: Hunting
 
-- [ ] Some animals become huntable (not the cows/chickens — those are farm animals)
-- [ ] Huntable: wild birds, maybe distant animals that spawn in the savanna
-- [ ] Simple tool: slingshot or spear (click to throw/shoot)
-- [ ] Projectile physics (arc trajectory)
-- [ ] Drops: meat, hide, feathers
-- [ ] Sell at market or use for crafting
-- [ ] Animals flee when approached — need stealth/distance shots
-- [ ] Don't hunt farm animals (penalty? they're yours!)
+- [x] Some animals become huntable (not the cows/chickens — those are farm animals)
+- [x] Huntable: wild birds, maybe distant animals that spawn in the savanna
+- [x] Simple tool: slingshot or spear (click to throw/shoot)
+- [x] Projectile physics (arc trajectory)
+- [x] Drops: meat, hide, feathers
+- [x] Sell at market or use for crafting
+- [x] Animals flee when approached — need stealth/distance shots
+- [x] Don't hunt farm animals (penalty? they're yours!)
 
 ---
 
 ## Phase 6: Economy — Buying Stuff
 
-- [ ] Currency: Tanzanian Shillings (TSh) or simplified "coins"
-- [ ] Market/shop: interact with a building to open buy/sell menu
+- [x] Currency: Tanzanian Shillings (TSh) or simplified "coins"
+- [x] Market/shop: interact with a building to open buy/sell menu
 - [ ] Buyable items:
   - Seeds (different crop types)
   - Tools (hoe, watering can, slingshot, better versions)
@@ -80,21 +80,27 @@
 
 ---
 
-## Phase 7: Land & Upgrades
+## Phase 7A: Land Expansion
 
-- [ ] Start with a small plot near the hut
-- [ ] Buy adjacent land plots to expand your farm
-- [ ] Land types: fertile (cheap, good), savanna (cheap, needs work), riverside (expensive, great)
-- [ ] Upgrades:
-  - Bigger hut → house
-  - Storage barn (increase inventory capacity)
-  - Solar panel → power tools
-  - Water pump (auto-irrigate nearby plots)
-  - Sensor node (shows soil data for that plot — callback to original project!)
-  - Chicken coop → eggs income
-  - Cow pasture → milk income
-  - Fenced areas to keep animals in/out
-- [ ] Each upgrade is a visible 3D object placed in the world
+- [x] Start with a small plot near the hut
+- [x] Buy adjacent land plots to expand farm (5 plots: East, North, South, Riverside, Far East)
+- [x] Land types: fertile (1.0x), savanna (0.7x + dry grass), riverside (1.4x + auto-water + water channel)
+- [x] Each plot adds farmable cells to the global grid
+- [x] "For Sale" sign posts with corner stakes mark available plots in the world
+- [x] Visual terrain per type (soil color, water channel on riverside, dry grass on savanna)
+- [x] Plot prerequisites (unlock chain: East/South → North → Riverside, East → Far East)
+
+## Phase 7B: Upgrades
+
+- [x] Upgrades buyable at the shop, each spawns a visible 3D structure:
+  - Storage Barn (Ghala) → +15% sell bonus at market
+  - Water Pump (Pampu) → auto-waters crops within 14m range (daytime only without solar)
+  - Solar Panel (Sola) → powers water pump 24/7
+  - Sensor Node (Sensori) → unhides RPi + AI server, shows soil data HUD
+  - Big House (Nyumba Kubwa) → cosmetic prestige upgrade (bigger house model)
+- [x] Chicken coop → eggs income (done in Phase 6)
+- [x] Cow pasture → milk income (done in Phase 6)
+- [x] Fenced areas to keep animals in/out (done in Phase 6)
 
 ---
 
@@ -132,7 +138,7 @@
 
 ## Nice-to-Have (Later)
 
-- [ ] Save/load system (localStorage for HTML5, file system for Electron)
+- [x] Save/load system (localStorage for HTML5, file system for Electron)
 - [ ] Sound effects: footsteps, ambient birds, wind, crop harvesting, animal sounds
 - [ ] Music: chill lo-fi African-inspired ambient soundtrack
 - [ ] Weather system: rain (boosts crops), drought (damages them), wind

@@ -1,9 +1,9 @@
 // ============================================================
-// Save / Load — Phase 6 expanded
+// Save / Load — v4 (land plots + upgrades)
 // ============================================================
 
-const SAVE_KEY     = 'farmsim_save_v2';
-const SAVE_VERSION = 2;
+const SAVE_KEY     = 'farmsim_save_v4';
+const SAVE_VERSION = 4;
 
 // ---- Global economy state ----
 let playerMoney = 500;   // starting balance (TSh)
@@ -12,6 +12,7 @@ let playerMoney = 500;   // starting balance (TSh)
 // Save
 // ============================================================
 function saveGame() {
+  // Save all farmCells (original + expansion), recording their global index
   const cells = [];
   farmCells.forEach((c, idx) => {
     if (c.stage >= 0) {
@@ -23,16 +24,40 @@ function saveGame() {
   });
 
   const data = {
-    version:       SAVE_VERSION,
-    savedAt:       Date.now(),
+    version:        SAVE_VERSION,
+    savedAt:        Date.now(),
     farmRealTime,
-    money:         playerMoney,
-    huntLoot:      { ...inventory },
-    seedInventory: [...seedInventory],
-    cropInventory: [...cropInventory],
-    ownedTools:    { ...ownedTools },
-    fertilizer:    fertilizerCount,
+    money:          playerMoney,
+    huntLoot:       { ...inventory },
+    seedInventory:  [...seedInventory],
+    cropInventory:  [...cropInventory],
+    ownedTools:     { ...ownedTools },
+    fertilizer:     fertilizerCount,
+    animalFeed:     animalFeedCount,
+    fencing:        fencingOwned,
+    ownedChickens,
+    ownedCows,
+    animalProducts: { ...animalProducts },
+    eggCooldown,
+    milkCooldown,
+    troughFeedStored,
+    lastPriceDay,
+    seedPrices:     [...SEED_PRICES],
+    cropPrices:     [...CROP_PRICES],
+    lootPrices:     { ...LOOT_PRICES },
+    productPrices:  { ...PRODUCT_PRICES },
     cells,
+    // Phase 7A — land plots
+    ownedPlots:     { ...ownedPlots },
+    plotCellRanges: { ...plotCellRanges },
+    // Phase 7B — upgrades
+    upgrades: {
+      storageBarn:  UPGRADES.storageBarn.built,
+      waterPump:    UPGRADES.waterPump.built,
+      solarPanel:   UPGRADES.solarPanel.built,
+      sensorNode:   UPGRADES.sensorNode.built,
+      houseUpgrade: UPGRADES.houseUpgrade.built,
+    },
   };
 
   try {
@@ -82,10 +107,92 @@ function loadGame() {
   if (data.ownedTools) {
     ownedTools.hoe         = data.ownedTools.hoe ?? true;
     ownedTools.wateringCan = data.ownedTools.wateringCan ?? false;
+    ownedTools.machete     = data.ownedTools.machete ?? false;
+    ownedTools.axe         = data.ownedTools.axe ?? false;
   }
   fertilizerCount = data.fertilizer ?? 0;
 
-  // Restore planted cells
+  // Animal farming
+  animalFeedCount = data.animalFeed ?? 0;
+  fencingOwned    = data.fencing ?? false;
+  ownedChickens   = data.ownedChickens ?? 5;
+  ownedCows       = data.ownedCows ?? 4;
+
+  if (data.animalProducts) {
+    animalProducts.eggs = data.animalProducts.eggs ?? 0;
+    animalProducts.milk = data.animalProducts.milk ?? 0;
+  }
+  eggCooldown  = data.eggCooldown ?? EGG_INTERVAL;
+  milkCooldown = data.milkCooldown ?? MILK_INTERVAL;
+  troughFeedStored = data.troughFeedStored ?? 0;
+
+  // Price fluctuation state
+  if (data.lastPriceDay != null) lastPriceDay = data.lastPriceDay;
+  if (data.seedPrices) {
+    for (let i = 0; i < SEED_PRICES.length; i++) {
+      SEED_PRICES[i] = data.seedPrices[i] ?? BASE_SEED_PRICES[i];
+    }
+  }
+  if (data.cropPrices) {
+    for (let i = 0; i < CROP_PRICES.length; i++) {
+      CROP_PRICES[i] = data.cropPrices[i] ?? BASE_CROP_PRICES[i];
+    }
+  }
+  if (data.lootPrices) {
+    for (const k of Object.keys(LOOT_PRICES)) {
+      LOOT_PRICES[k] = data.lootPrices[k] ?? BASE_LOOT_PRICES[k];
+    }
+  }
+  if (data.productPrices) {
+    for (const k of Object.keys(PRODUCT_PRICES)) {
+      PRODUCT_PRICES[k] = data.productPrices[k] ?? BASE_PRODUCT_PRICES[k];
+    }
+  }
+
+  // Rebuild fencing + troughs if owned
+  if (fencingOwned) {
+    buildFence();
+    if (typeof updateTroughVisuals === 'function') updateTroughVisuals();
+  }
+
+  // Spawn extra animals beyond defaults
+  const defaultChickens = 5;
+  const defaultCows = 4;
+  for (let i = defaultChickens; i < ownedChickens; i++) {
+    const cx = -30 + (Math.random() - 0.5) * 10;
+    const cz = -2 + (Math.random() - 0.5) * 8;
+    createChicken(cx, cz);
+  }
+  for (let i = defaultCows; i < ownedCows; i++) {
+    const cx = -30 + (Math.random() - 0.5) * 10;
+    const cz = -2 + (Math.random() - 0.5) * 8;
+    createCow(cx, cz);
+  }
+
+  // ---- Phase 7A: Restore land plots ----
+  if (data.ownedPlots) {
+    // Rebuild plots in the right order so farmCells indices match
+    for (const plot of LAND_PLOTS) {
+      if (data.ownedPlots[plot.id]) {
+        ownedPlots[plot.id] = true;
+        addPlotCells(plot);
+        rebuildOwnedPlot(plot.id);
+      }
+    }
+    refreshSaleSigns();
+  }
+
+  // ---- Phase 7B: Restore upgrades ----
+  if (data.upgrades) {
+    UPGRADES.storageBarn.built  = data.upgrades.storageBarn ?? false;
+    UPGRADES.waterPump.built    = data.upgrades.waterPump ?? false;
+    UPGRADES.solarPanel.built   = data.upgrades.solarPanel ?? false;
+    UPGRADES.sensorNode.built   = data.upgrades.sensorNode ?? false;
+    UPGRADES.houseUpgrade.built = data.upgrades.houseUpgrade ?? false;
+    rebuildUpgrades();
+  }
+
+  // Restore planted cells (must be after land plots are added so indices exist)
   for (const saved of (data.cells || [])) {
     const cell = farmCells[saved.idx];
     if (!cell) continue;

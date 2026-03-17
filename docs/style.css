@@ -55,6 +55,19 @@ canvas { display: block; }
   text-shadow: 0 0 8px #ffd70044;
   margin-top: 6px;
 }
+#soil-data-hud {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: #44ccff;
+  margin-top: 4px;
+  display: flex;
+  gap: 8px;
+}
+#soil-data-hud span {
+  background: rgba(0,0,0,0.4);
+  padding: 2px 5px;
+  border-radius: 3px;
+}
 #game-clock {
   font-family: 'Press Start 2P', monospace;
   font-size: 13px;
@@ -325,6 +338,17 @@ canvas { display: block; }
   color: #444;
   line-height: 1.6;
 }
+.hardmode-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 0;
+}
+.hardmode-row input {
+  width: 16px;
+  height: 16px;
+  accent-color: #7cfc00;
+}
 .hint-link { color: #7cfc0066; }
 .saved-msg {
   margin-top: 10px;
@@ -546,6 +570,13 @@ kbd {
   font-size: 10px;
   color: #ffd700;
   margin-bottom: 20px;
+}
+.market-notice {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: #ff8844;
+  margin-bottom: 12px;
+  animation: blink 2s infinite;
 }
 .trade-row {
   display: grid;

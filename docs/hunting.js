@@ -16,6 +16,10 @@ const PROJ_LIFETIME = 1.0;  // seconds before despawn
 const projectiles = [];
 const lootPiles   = [];
 
+const LOOT_DROP_RADIUS = 0.22;
+const LOOT_PICKUP_RADIUS = 2.25;
+const LOOT_NEAR_RADIUS = 4.2;
+
 // ============================================================
 // Wild-animal meshes
 // ============================================================
@@ -190,7 +194,7 @@ function spawnLoot(pos, animalType) {
 
   for (const drop of drops) {
     const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.18, 6, 4),
+      new THREE.SphereGeometry(LOOT_DROP_RADIUS, 6, 4),
       new THREE.MeshBasicMaterial({ color: drop.color })
     );
     mesh.position.set(
@@ -199,7 +203,7 @@ function spawnLoot(pos, animalType) {
       pos.z + (Math.random() - 0.5) * 0.6
     );
     scene.add(mesh);
-    lootPiles.push({ mesh, type: drop.type });
+    lootPiles.push({ mesh, type: drop.type, pickupRadius: LOOT_PICKUP_RADIUS });
   }
 }
 
@@ -314,18 +318,20 @@ function updateHunting(dt) {
     animal.mesh.position.y = groundAt(animal.mesh.position.x, animal.mesh.position.z);
   }
 
-  // ---- Loot collection: walk within 1.5 m ----
+  // ---- Loot collection: wider horizontal pickup radius ----
   let nearLoot = false;
   for (let i = lootPiles.length - 1; i >= 0; i--) {
     const loot = lootPiles[i];
-    const d    = player.pos.distanceTo(loot.mesh.position);
+    const dx = player.pos.x - loot.mesh.position.x;
+    const dz = player.pos.z - loot.mesh.position.z;
+    const d2D = Math.sqrt(dx * dx + dz * dz);
 
-    if (d < 1.5) {
+    if (d2D < (loot.pickupRadius || LOOT_PICKUP_RADIUS)) {
       inventory[loot.type]++;
       scene.remove(loot.mesh);
       lootPiles.splice(i, 1);
       updateInventoryHUD();
-    } else if (d < 3.5) {
+    } else if (d2D < LOOT_NEAR_RADIUS) {
       nearLoot = true;
     }
   }
@@ -334,7 +340,7 @@ function updateHunting(dt) {
   const tipEl = document.getElementById('farm-tooltip');
   if (nearLoot && lootPiles.length > 0) {
     if (tipEl && tipEl.style.display === 'none') {
-      tipEl.textContent  = 'Walk closer to collect';
+      tipEl.textContent  = 'Move a little closer to collect loot';
       tipEl.style.display = 'block';
     }
   }

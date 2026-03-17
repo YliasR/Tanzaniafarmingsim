@@ -43,11 +43,11 @@ function updateDayNight(dt) {
   const sunElev = Math.sin((dayTime - 0.25) * Math.PI * 2);
   const sunAz   = dayTime * Math.PI * 2;
 
-  // Move sun mesh
-  sun.position.set(Math.cos(sunAz) * 90, sunElev * 75, Math.sin(sunAz) * -70);
+  // Keep the sun far on the sky dome so it never appears to touch nearby terrain.
+  sun.position.set(Math.cos(sunAz) * 520, sunElev * 280 + 110, Math.sin(sunAz) * -520);
   glow.position.copy(sun.position);
   glow2.position.copy(sun.position);
-  const sunAbove = sunElev > -0.08;
+  const sunAbove = sunElev > 0;
   sun.visible   = sunAbove;
   glow.visible  = sunAbove;
   glow2.visible = sunAbove;
@@ -57,6 +57,8 @@ function updateDayNight(dt) {
   moonGlow.position.copy(moon.position);
   moon.visible     = !sunAbove;
   moonGlow.visible = !sunAbove;
+  moonLight.position.copy(moon.position);
+  moonLight.intensity = Math.max(0, -sunElev) * 0.35;
 
   // Stars
   starField.visible = sunElev < -0.25;
@@ -130,6 +132,27 @@ function updateInteractionTips() {
       return;
     }
   }
+  // Feed troughs
+  if (typeof feedTroughs !== 'undefined' && fencingOwned) {
+    for (const t of feedTroughs) {
+      const dx = player.pos.x - t.x;
+      const dz = player.pos.z - t.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist < 3.0) {
+        const full = troughFeedStored >= TROUGH_MAX_FEED;
+        const empty = animalFeedCount <= 0;
+        const fillPct = Math.round((troughFeedStored / TROUGH_MAX_FEED) * 100);
+        if (full) {
+          if (tipEl) { tipEl.textContent = `Trough full (${fillPct}%)`; tipEl.style.display = 'block'; }
+        } else if (empty) {
+          if (tipEl) { tipEl.textContent = `Trough ${fillPct}% — buy feed at Duka`; tipEl.style.display = 'block'; }
+        } else {
+          if (tipEl) { tipEl.textContent = `[E] Fill trough (${fillPct}%) — Feed: ${animalFeedCount}`; tipEl.style.display = 'block'; }
+        }
+        return;
+      }
+    }
+  }
 }
 
 window.addEventListener('keydown', e => {
@@ -153,6 +176,24 @@ window.addEventListener('keydown', e => {
       dayTime = 0.27;
       const tipEl = document.getElementById('farm-tooltip');
       if (tipEl) tipEl.style.display = 'none';
+      return;
+    }
+    // Fill feed trough
+    if (typeof feedTroughs !== 'undefined' && fencingOwned) {
+      for (const t of feedTroughs) {
+        const dx = player.pos.x - t.x;
+        const dz = player.pos.z - t.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist < 3.0 && animalFeedCount > 0 && troughFeedStored < TROUGH_MAX_FEED) {
+          // Pour feed into trough — dump as much as fits
+          const space = TROUGH_MAX_FEED - troughFeedStored;
+          const toAdd = Math.min(animalFeedCount, space);
+          troughFeedStored += toAdd;
+          animalFeedCount -= toAdd;
+          updateTroughVisuals();
+          return;
+        }
+      }
     }
   }
 
@@ -181,6 +222,10 @@ function animate() {
   updatePlayer(dt);
   camera.position.copy(player.pos);
   camera.quaternion.setFromEuler(new THREE.Euler(player.pitch, player.yaw, 0, 'YXZ'));
+  const shadowGround = getGroundHeight(player.pos.x, player.pos.z);
+  playerShadow.position.set(player.pos.x, shadowGround + 0.03, player.pos.z);
+  playerShadow.scale.set(1, 1, 1).multiplyScalar(player.onGround ? 1 : 0.75);
+  playerShadow.material.opacity = player.onGround ? 0.22 : 0.14;
 
   // ---- Clouds ----
   particleTimer += dt;
@@ -228,6 +273,12 @@ function animate() {
   // ---- Farming ----
   updateFarming(dt);
 
+  // ---- Animal production (eggs & milk) ----
+  if (typeof updateAnimalProduction === 'function') updateAnimalProduction(dt);
+
+  // ---- Price fluctuation ----
+  if (typeof updatePriceFluctuation === 'function') updatePriceFluctuation();
+
   // ---- Hunting ----
   updateHunting(dt);
 
@@ -249,6 +300,9 @@ function animate() {
   // ---- Interaction tooltips (shop/market/sleep) ----
   updateInteractionTips();
 
+  // ---- Soil data HUD (sensor node upgrade) ----
+  if (typeof updateSoilHUD === 'function') updateSoilHUD();
+
   // ---- Clock ----
   updateClock();
 
@@ -261,34 +315,59 @@ function animate() {
   // ---- Scene animations ----
   rpiGroup.rotation.z = Math.sin(time * 0.8) * 0.01;
 
+  const isNight = dayTime > 0.72 || dayTime < 0.24;
+
+  // Fence bounds for containing animals when fencing is owned
+  const _fX1 = FENCE_X, _fZ1 = FENCE_Z, _fX2 = FENCE_X + FENCE_W, _fZ2 = FENCE_Z + FENCE_D;
+
   chickens.forEach(c => {
-    c.wanderAngle += c.wanderSpeed;
-    c.peckTimer   -= dt;
-    c.mesh.position.x = c.baseX + Math.cos(c.wanderAngle) * 1.5;
-    c.mesh.position.z = c.baseZ + Math.sin(c.wanderAngle) * 1.5;
-    c.mesh.rotation.y = c.wanderAngle + Math.PI / 2;
-    if (c.peckTimer < 0.5 && c.peckTimer > 0) {
-      c.mesh.rotation.x = Math.sin(c.peckTimer * 12) * 0.3;
+    if (isNight) {
+      c.mesh.rotation.x = 0.35;
     } else {
-      c.mesh.rotation.x = 0;
+      c.wanderAngle += c.wanderSpeed;
+      c.peckTimer   -= dt;
+      c.mesh.position.x = c.baseX + Math.cos(c.wanderAngle) * 1.5;
+      c.mesh.position.z = c.baseZ + Math.sin(c.wanderAngle) * 1.5;
+      c.mesh.rotation.y = c.wanderAngle + Math.PI / 2;
+      if (c.peckTimer < 0.5 && c.peckTimer > 0) {
+        c.mesh.rotation.x = Math.sin(c.peckTimer * 12) * 0.3;
+      } else {
+        c.mesh.rotation.x = 0;
+      }
+      if (c.peckTimer < 0) c.peckTimer = 2 + Math.random() * 4;
     }
-    if (c.peckTimer < 0) c.peckTimer = 2 + Math.random() * 4;
-    c.mesh.position.y = getGroundHeight(c.mesh.position.x, c.mesh.position.z) + Math.abs(Math.sin(time * 6 + c.wanderAngle * 3)) * 0.03;
+    // Keep chickens inside fence if built
+    if (fencingOwned) {
+      c.mesh.position.x = Math.max(_fX1 + 0.5, Math.min(_fX2 - 0.5, c.mesh.position.x));
+      c.mesh.position.z = Math.max(_fZ1 + 0.5, Math.min(_fZ2 - 0.5, c.mesh.position.z));
+    }
+    c.mesh.position.y = getGroundHeight(c.mesh.position.x, c.mesh.position.z) + Math.abs(Math.sin(time * 6 + c.wanderAngle * 3)) * (isNight ? 0.005 : 0.03);
   });
 
   goats.forEach(g => {
-    g.wanderAngle += g.wanderSpeed;
-    g.mesh.position.x = g.baseX + Math.cos(g.wanderAngle) * g.wanderRadius;
-    g.mesh.position.z = g.baseZ + Math.sin(g.wanderAngle) * g.wanderRadius;
-    g.mesh.rotation.y = g.wanderAngle + Math.PI / 2;
-    g.mesh.position.y = getGroundHeight(g.mesh.position.x, g.mesh.position.z) + Math.sin(time * 3 + g.wanderAngle) * 0.02;
+    if (!isNight) {
+      g.wanderAngle += g.wanderSpeed;
+      g.mesh.position.x = g.baseX + Math.cos(g.wanderAngle) * g.wanderRadius;
+      g.mesh.position.z = g.baseZ + Math.sin(g.wanderAngle) * g.wanderRadius;
+      g.mesh.rotation.y = g.wanderAngle + Math.PI / 2;
+    }
+    g.mesh.position.y = getGroundHeight(g.mesh.position.x, g.mesh.position.z) + Math.sin(time * 3 + g.wanderAngle) * (isNight ? 0.004 : 0.02);
   });
 
   cows.forEach(c => {
-    c.wanderAngle += c.wanderSpeed;
-    c.mesh.rotation.y += c.wanderSpeed * 0.5;
-    c.headBob += 0.02;
-    c.mesh.children[1].rotation.x = Math.sin(c.headBob) * 0.15;
+    if (!isNight) {
+      c.wanderAngle += c.wanderSpeed;
+      c.mesh.rotation.y += c.wanderSpeed * 0.5;
+      c.headBob += 0.02;
+      c.mesh.children[1].rotation.x = Math.sin(c.headBob) * 0.15;
+    } else {
+      c.mesh.children[1].rotation.x = -0.08;
+    }
+    // Keep cows inside fence if built
+    if (fencingOwned) {
+      c.mesh.position.x = Math.max(_fX1 + 0.8, Math.min(_fX2 - 0.8, c.mesh.position.x));
+      c.mesh.position.z = Math.max(_fZ1 + 0.8, Math.min(_fZ2 - 0.8, c.mesh.position.z));
+    }
   });
 
   [giraffe1, giraffe2].forEach(g => {
@@ -334,11 +413,20 @@ function startGame() {
   container.requestPointerLock();
 }
 
+function isHardModeEnabled() {
+  return localStorage.getItem('farmsim_hard_mode') === '1';
+}
+
+window.isHardModeEnabled = isHardModeEnabled;
+
 function saveSettings() {
   const key = document.getElementById('apikey-input').value.trim();
+  const hardModeEl = document.getElementById('hardmode-toggle');
+  const hardMode = !!(hardModeEl && hardModeEl.checked);
   localStorage.setItem('farmsim_openrouter_key', key);
+  localStorage.setItem('farmsim_hard_mode', hardMode ? '1' : '0');
   const msg = document.getElementById('settings-saved-msg');
-  msg.textContent = key ? 'Saved.' : 'Cleared.';
+  msg.textContent = hardMode ? 'Saved. Hard Mode ON.' : (key ? 'Saved.' : 'Cleared.');
   setTimeout(() => { msg.textContent = ''; }, 2000);
 }
 
@@ -357,8 +445,11 @@ function toggleApiKeyVisibility() {
 // Load persisted settings into the input on startup
 (function loadSettings() {
   const key = localStorage.getItem('farmsim_openrouter_key') || '';
+  const hardMode = localStorage.getItem('farmsim_hard_mode') === '1';
   const el  = document.getElementById('apikey-input');
+  const hardModeEl = document.getElementById('hardmode-toggle');
   if (el) el.value = key;
+  if (hardModeEl) hardModeEl.checked = hardMode;
 })();
 
 // Init

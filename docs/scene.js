@@ -56,9 +56,21 @@ sunLight.shadow.camera.right = 50;
 sunLight.shadow.camera.top = 50;
 sunLight.shadow.camera.bottom = -50;
 scene.add(sunLight);
+const moonLight = new THREE.DirectionalLight(0x88aaff, 0);
+moonLight.position.set(-40, 45, 35);
+scene.add(moonLight);
 // Warm hemisphere: hot sky above, red earth below
 const hemiLight = new THREE.HemisphereLight(0xdec88a, 0x8b4513, 0.45);
 scene.add(hemiLight);
+
+const playerShadow = new THREE.Mesh(
+  new THREE.CircleGeometry(0.34, 18),
+  new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false })
+);
+playerShadow.rotation.x = -Math.PI / 2;
+playerShadow.position.y = 0.02;
+playerShadow.renderOrder = 2;
+scene.add(playerShadow);
 
 // --- Ground (Tanzanian red laterite earth with dry savanna) ---
 const groundGeo = new THREE.PlaneGeometry(600, 600, 100, 100);
@@ -718,7 +730,7 @@ function createBaobab(x, z, s) {
 }
 
 // Place acacias (scattered across savanna)
-[
+const ACACIA_TREE_POSITIONS = [
   [-25,-8,1.2],[-22,-5,1],[-28,2,1.3],[28,-10,1.3],[30,5,1],[25,12,1.1],
   [-12,-18,1.1],[15,-20,1.2],[-8,20,1],[10,22,1.1],[-30,-15,1.3],
   [32,-18,1.0],[-15,22,0.9],[35,20,1.2],[18,25,1.0],[-35,-10,1.1],
@@ -728,13 +740,15 @@ function createBaobab(x, z, s) {
   [80,-60,1.0],[-75,40,1.1],[90,30,1.3],[-80,-25,1.0],[100,-10,1.2],
   [45,-80,1.0],[-90,60,1.1],[110,50,0.9],[-100,-70,1.2],[75,80,1.0],
   [-60,90,1.1],[120,-30,1.0],[-110,10,1.3],[95,-90,0.9],[65,-110,1.1]
-].forEach(([x,z,s]) => createAcacia(x,z,s));
+];
+ACACIA_TREE_POSITIONS.forEach(([x,z,s]) => createAcacia(x,z,s));
 
 // Place baobabs (fewer, they're rare and iconic)
-[
+const BAOBAB_TREE_POSITIONS = [
   [-20,8,1.4],[38,8,1.2],[-40,-20,1.5],[45,25,1.1],
   [85,-45,1.3],[-90,55,1.4],[110,-80,1.2],[-105,70,1.3]
-].forEach(([x,z,s]) => createBaobab(x,z,s));
+];
+BAOBAB_TREE_POSITIONS.forEach(([x,z,s]) => createBaobab(x,z,s));
 
 // --- African sun (big, hot, golden) ---
 const sun = new THREE.Mesh(
@@ -897,7 +911,8 @@ function createChicken(x, z) {
   });
 }
 // Scatter chickens near the hut
-[[-16, 10], [-17, 13], [-19, 11], [-15, 14], [-20, 10]].forEach(([x, z]) => createChicken(x, z));
+// Scatter chickens inside the animal pen area (SW of house)
+[[-30, -2], [-28, 1], [-32, -4], [-26, 0], [-34, -1]].forEach(([x, z]) => createChicken(x, z));
 
 // --- Goats (derpy rectangles with horns, wandering the savanna) ---
 const goats = [];
@@ -1034,7 +1049,8 @@ function createCow(x, z) {
     headBob: Math.random() * Math.PI
   });
 }
-[[-30, 2], [-28, -3], [25, 20], [28, 22]].forEach(([x, z]) => createCow(x, z));
+// Cows inside the animal pen area (SW of house)
+[[-32, -5], [-28, -2], [-25, -6], [-34, 2]].forEach(([x, z]) => createCow(x, z));
 
 // --- Giraffe (tall lanky boi in the distance) ---
 function createGiraffe(x, z) {
@@ -1310,6 +1326,15 @@ const worldColliders = [
   { x1:   8, x2:  12, z1: -8, z2: -4,   name: 'shop'   },  // (10, -6), 4×3.5 m
   { x1:  52, x2:  58, z1: -12, z2: -8,  name: 'market'  },  // (55, -10), 5×3.5 m
 ];
+
+for (const [x, z, s] of ACACIA_TREE_POSITIONS) {
+  const r = 0.6 * s;
+  worldColliders.push({ x1: x - r, x2: x + r, z1: z - r, z2: z + r, name: 'acacia' });
+}
+for (const [x, z, s] of BAOBAB_TREE_POSITIONS) {
+  const r = 0.9 * s;
+  worldColliders.push({ x1: x - r, x2: x + r, z1: z - r, z2: z + r, name: 'baobab' });
+}
 
 // Sky dome background is handled above — day/night tints it in app.js
 

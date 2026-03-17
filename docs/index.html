@@ -50,6 +50,16 @@
         <p class="setting-hint">Delete your save and start a new game from scratch.</p>
       </div>
 
+      <div class="setting-group">
+        <label class="setting-label" for="hardmode-toggle">Difficulty</label>
+        <div class="input-row">
+          <label class="setting-hint hardmode-row">
+            <input type="checkbox" id="hardmode-toggle">
+            Hard Mode (soil quality limits planting + changes crop growth speed)
+          </label>
+        </div>
+      </div>
+
       <div class="menu-buttons">
         <button class="menu-btn primary" onclick="saveSettings()">SAVE SETTINGS</button>
         <button class="menu-btn danger" onclick="resetGame()">RESET GAME</button>
@@ -106,6 +116,12 @@
     <div id="shop-tools"></div>
     <h3 class="section-heading">SUPPLIES</h3>
     <div id="shop-supplies"></div>
+    <h3 class="section-heading">ANIMALS</h3>
+    <div id="shop-animals"></div>
+    <h3 class="section-heading">LAND PLOTS</h3>
+    <div id="shop-land"></div>
+    <h3 class="section-heading">UPGRADES</h3>
+    <div id="shop-upgrades"></div>
     <button class="menu-btn" onclick="closeShop()">[E] CLOSE</button>
   </div>
 </div>
@@ -115,8 +131,11 @@
   <div class="trade-card">
     <h2 class="trade-title">SOKO — MARKET</h2>
     <div class="trade-money">Balance: TSh <span id="market-money">500</span></div>
+    <p id="market-notice" class="market-notice">Prices change daily!</p>
     <h3 class="section-heading">SELL CROPS</h3>
     <div id="market-crops"></div>
+    <h3 class="section-heading">SELL ANIMAL PRODUCTS</h3>
+    <div id="market-products"></div>
     <h3 class="section-heading">SELL HUNTING LOOT</h3>
     <div id="market-loot"></div>
     <button class="menu-btn" onclick="closeMarket()">[E] CLOSE</button>
@@ -132,6 +151,7 @@
     <div id="money-hud">TSh <span id="money-amount">500</span></div>
     <div id="game-clock">06:00</div>
     <p id="nokia-hint-hud">[ N ] Nokia  [ I ] Inventory</p>
+    <div id="soil-data-hud" style="display:none"></div>
   </div>
 
   <div id="save-indicator">SAVED</div>
@@ -193,6 +213,8 @@
 <script src="farming.js"></script>
 <script src="hunting.js"></script>
 <script src="shop.js"></script>
+<script src="land.js"></script>
+<script src="upgrades.js"></script>
 <script src="save.js"></script>
 <script src="sms.js"></script>
 <script src="app.js"></script>
