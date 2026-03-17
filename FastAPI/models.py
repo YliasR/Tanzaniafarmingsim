@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Numeric, BigInteger, Text
 from sqlalchemy.orm import relationship
-from database import Base
+from .database import Base
 import datetime
 
 class Farmer(Base):

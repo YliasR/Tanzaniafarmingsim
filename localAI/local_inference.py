@@ -5,7 +5,7 @@ import sys
 
 # Zorg dat we de rag_engine kunnen importeren, ook als we vanuit de root draaien
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from rag_engine import SimpleRAG
+from .rag_engine import SimpleRAG
 
 # --- CONFIG ---
 # Ollama draait standaard op localhost:11434
