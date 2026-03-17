@@ -30,7 +30,9 @@ services:
     restart: on-failure
 
   fastapi-server:
-    build: FastAPI/
+    build:
+      context: .
+      dockerfile: FastAPI/Dockerfile
     container_name: soilsms_fastapi_server
     ports:
       - "8000:8000"
@@ -39,6 +41,11 @@ services:
       - POSTGRES_DB=soilsms_db
       - POSTGRES_USER=mijn_gebruiker
       - POSTGRES_PASSWORD=mijn_wachtwoord
+      - USE_LOCAL_AI=true
+      - SMS_MODE=modem
+      - GSM_PORT=/dev/ttyAMA0
+    volumes:
+      - .:/app
     depends_on:
       - db
     restart: on-failure
