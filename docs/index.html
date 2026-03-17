@@ -8,29 +8,121 @@
 </head>
 <body>
 
-<!-- Landing overlay -->
-<div id="info-overlay">
-  <div class="info-card">
-    <h1>FARM SIM</h1>
-    <p>
-      A low-poly Tanzanian farming world. Tend your crops, raise animals,
-      and survive on the savanna.
-    </p>
-    <p style="font-size:13px; color:#666;">
-      Drag to orbit &bull; Scroll to zoom
-    </p>
-    <div class="start-hint">[ CLICK TO ENTER ]</div>
-  </div>
-</div>
+<!-- ===== MENU OVERLAY ===== -->
+<div id="menu-overlay">
 
+  <!-- Title Screen -->
+  <div id="page-title" class="menu-page">
+    <div class="menu-card">
+      <div class="title-logo">
+        <h1>FARM<br>SIM</h1>
+        <p class="title-sub">Tanzania &mdash; off-grid farming</p>
+      </div>
+      <div class="menu-buttons">
+        <button class="menu-btn primary" onclick="startGame()">&#9654; PLAY</button>
+        <button class="menu-btn" onclick="showPage('settings')">&#9881; SETTINGS</button>
+        <button class="menu-btn" onclick="showPage('help')">? HELP / ABOUT</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Page -->
+  <div id="page-settings" class="menu-page hidden">
+    <div class="menu-card">
+      <h2 class="page-title">SETTINGS</h2>
+
+      <div class="setting-group">
+        <label class="setting-label">OpenRouter API Key</label>
+        <div class="input-row">
+          <input type="password" id="apikey-input"
+                 placeholder="sk-or-v1-..."
+                 autocomplete="off" spellcheck="false">
+          <button class="toggle-key-btn" onclick="toggleApiKeyVisibility()">SHOW</button>
+        </div>
+        <p class="setting-hint">
+          Used for AI crop analysis via the Nokia phone in-game.<br>
+          Free key available at <span class="hint-link">openrouter.ai</span> — no card needed.
+        </p>
+      </div>
+
+      <div class="menu-buttons">
+        <button class="menu-btn primary" onclick="saveSettings()">SAVE</button>
+        <button class="menu-btn" onclick="showPage('title')">&#8592; BACK</button>
+      </div>
+      <p id="settings-saved-msg" class="saved-msg"></p>
+    </div>
+  </div>
+
+  <!-- Help / About Page -->
+  <div id="page-help" class="menu-page hidden">
+    <div class="menu-card wide">
+      <h2 class="page-title">HELP / ABOUT</h2>
+
+      <h3 class="section-heading">CONTROLS</h3>
+      <div class="controls-grid">
+        <kbd>W A S D</kbd><span>Move</span>
+        <kbd>Mouse</kbd><span>Look around</span>
+        <kbd>Shift</kbd><span>Sprint</span>
+        <kbd>Space</kbd><span>Jump</span>
+        <kbd>N</kbd><span>Toggle Nokia phone</span>
+        <kbd>1–5</kbd><span>Select seed type</span>
+        <kbd>F</kbd><span>Plant / Harvest crop</span>
+        <kbd>G</kbd><span>Toggle hunt mode (left-click to shoot)</span>
+        <kbd>E</kbd><span>Sleep until morning (stand at house door, night only)</span>
+        <kbd>Esc</kbd><span>Release mouse cursor</span>
+      </div>
+
+      <h3 class="section-heading">ABOUT</h3>
+      <p class="about-text">
+        A low-poly open-world farming sim set in rural Tanzania. Explore the
+        savanna, tend crops, and raise animals beneath Kilimanjaro.
+      </p>
+      
+
+      <div class="menu-buttons">
+        <button class="menu-btn" onclick="showPage('title')">&#8592; BACK</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /menu-overlay -->
+
+<!-- ===== GAME CANVAS ===== -->
 <div id="canvas-container">
-  <!-- HUD -->
+  <div id="crosshair"></div>
+
   <div id="hud">
     <h1>FARM SIM</h1>
+    <p id="nokia-hint-hud">[ N ] Nokia</p>
+    <div id="game-clock">06:00</div>
   </div>
 
-  <!-- Nokia phone (logic preserved for later use) -->
-  <div id="nokia-container" onclick="toggleNokia()">
+  <div id="save-indicator">SAVED</div>
+
+  <!-- 2D Nokia phone widget -->
+  <!-- Seed toolbar -->
+  <div id="seed-toolbar">
+    <div class="seed-slot active"><span class="seed-key">1</span><span class="seed-name">MAIZE</span></div>
+    <div class="seed-slot"><span class="seed-key">2</span><span class="seed-name">BEANS</span></div>
+    <div class="seed-slot"><span class="seed-key">3</span><span class="seed-name">SORGHUM</span></div>
+    <div class="seed-slot"><span class="seed-key">4</span><span class="seed-name">CASSAVA</span></div>
+    <div class="seed-slot"><span class="seed-key">5</span><span class="seed-name">G.NUTS</span></div>
+  </div>
+
+  <!-- Hunt mode indicator -->
+  <div id="hunt-indicator" style="display:none">
+    <span class="hunt-label">HUNT MODE  [G]</span>
+    <div id="inventory-hud">
+      <span>MEAT <span id="inv-meat">0</span></span>
+      <span>HIDE <span id="inv-hide">0</span></span>
+      <span>FTHR <span id="inv-feathers">0</span></span>
+    </div>
+  </div>
+
+  <!-- Farm action tooltip -->
+  <div id="farm-tooltip" style="display:none"></div>
+
+  <div id="nokia-container" onclick="toggleNokia()" style="display:none">
     <div class="nokia-phone">
       <div class="nokia-brand">NOKIA</div>
       <div class="nokia-screen" id="nokia-screen">
@@ -47,7 +139,7 @@
         <div class="nokia-key">7</div><div class="nokia-key">8</div><div class="nokia-key">9</div>
         <div class="nokia-key">*</div><div class="nokia-key">0</div><div class="nokia-key">#</div>
       </div>
-      <div class="nokia-hint" id="nokia-hint">TAP TO READ SMS</div>
+      <div class="nokia-hint" id="nokia-hint">[ N ] READ SMS</div>
     </div>
   </div>
 </div>
@@ -55,6 +147,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="scene.js"></script>
 <script src="controls.js"></script>
+<script src="farming.js"></script>
+<script src="hunting.js"></script>
+<script src="save.js"></script>
 <script src="sms.js"></script>
 <script src="app.js"></script>
 </body>

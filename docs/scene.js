@@ -4,11 +4,35 @@
 
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
-// Warm Tanzanian sky — hazy golden-blue
-scene.background = new THREE.Color(0x9ec8e0);
-scene.fog = new THREE.FogExp2(0xc8b890, 0.006);
+scene.background = new THREE.Color(0x87ceeb); // fallback — sky dome renders on top
+scene.fog = new THREE.FogExp2(0xc8b890, 0.003);
 
-const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 500);
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 2000);
+
+// ---- Farm layout constants (shared with farming.js & controls.js) ----
+const FARM_COLS     = 10;
+const FARM_ROWS     = 8;
+const CELL_SIZE     = 1.5;
+const FARM_ORIGIN_X = -7.5;
+const FARM_ORIGIN_Z = 10.0;
+const FLAT_FARM_Y   = 0.70;   // flattened plateau height for the farm area
+const FARM_BLEND    = 8;      // blend zone width (m) between plateau and natural terrain
+
+function _smoothstep(lo, hi, x) {
+  const t = Math.max(0, Math.min(1, (x - lo) / (hi - lo)));
+  return t * t * (3 - 2 * t);
+}
+
+// Top surface of the raised farm bed (15 cm above flattened terrain)
+const FARM_SURFACE_Y = FLAT_FARM_Y + 0.15;
+
+// Terrain height — returns raised-bed surface inside farm, natural curve outside
+function groundAt(x, z) {
+  const inX = x >= FARM_ORIGIN_X && x <= FARM_ORIGIN_X + FARM_COLS * CELL_SIZE;
+  const inZ = z >= FARM_ORIGIN_Z && z <= FARM_ORIGIN_Z + FARM_ROWS * CELL_SIZE;
+  if (inX && inZ) return FARM_SURFACE_Y;
+  return Math.sin(x * 0.05) * 0.8 + Math.cos(z * 0.04) * 0.6;
+}
 camera.position.set(12, 8, 14);
 camera.lookAt(0, 1, 0);
 
@@ -20,7 +44,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 container.appendChild(renderer.domElement);
 
 // --- Lights (hot equatorial sun) ---
-scene.add(new THREE.AmbientLight(0xffe8c0, 0.55));
+const ambientLight = new THREE.AmbientLight(0xffe8c0, 0.55);
+scene.add(ambientLight);
 
 const sunLight = new THREE.DirectionalLight(0xfff0c0, 1.4);
 sunLight.position.set(30, 50, 20);
@@ -32,14 +57,35 @@ sunLight.shadow.camera.top = 50;
 sunLight.shadow.camera.bottom = -50;
 scene.add(sunLight);
 // Warm hemisphere: hot sky above, red earth below
-scene.add(new THREE.HemisphereLight(0xdec88a, 0x8b4513, 0.45));
+const hemiLight = new THREE.HemisphereLight(0xdec88a, 0x8b4513, 0.45);
+scene.add(hemiLight);
 
 // --- Ground (Tanzanian red laterite earth with dry savanna) ---
-const groundGeo = new THREE.PlaneGeometry(200, 200, 50, 50);
+const groundGeo = new THREE.PlaneGeometry(600, 600, 100, 100);
 const posAttr = groundGeo.attributes.position;
+// Farm footprint extents for blend
+const _fx1 = FARM_ORIGIN_X - FARM_BLEND, _fx2 = FARM_ORIGIN_X + FARM_COLS * CELL_SIZE + FARM_BLEND;
+const _fz1 = FARM_ORIGIN_Z - FARM_BLEND, _fz2 = FARM_ORIGIN_Z + FARM_ROWS * CELL_SIZE + FARM_BLEND;
 for (let i = 0; i < posAttr.count; i++) {
-  const x = posAttr.getX(i), y = posAttr.getY(i);
-  posAttr.setZ(i, Math.sin(x * 0.05) * 0.8 + Math.cos(y * 0.04) * 0.6 + Math.random() * 0.15);
+  const lx = posAttr.getX(i), ly = posAttr.getY(i);
+  // PlaneGeometry rotated -π/2 around X: worldX=lx, worldZ=-ly
+  const wx = lx, wz = -ly;
+  const natural = Math.sin(wx * 0.05) * 0.8 + Math.cos(wz * 0.04) * 0.6 + Math.random() * 0.15;
+  if (wx >= _fx1 && wx <= _fx2 && wz >= _fz1 && wz <= _fz2) {
+    // Blend factor: 1 = full plateau, 0 = full natural terrain
+    const bx = Math.min(
+      _smoothstep(_fx1, FARM_ORIGIN_X, wx),
+      _smoothstep(_fx2, FARM_ORIGIN_X + FARM_COLS * CELL_SIZE, wx)
+    );
+    const bz = Math.min(
+      _smoothstep(_fz1, FARM_ORIGIN_Z, wz),
+      _smoothstep(_fz2, FARM_ORIGIN_Z + FARM_ROWS * CELL_SIZE, wz)
+    );
+    const blend = Math.min(bx, bz);
+    posAttr.setZ(i, natural * (1 - blend) + FLAT_FARM_Y * blend);
+  } else {
+    posAttr.setZ(i, natural);
+  }
 }
 groundGeo.computeVertexNormals();
 // Vertex colors: mix red earth and dry yellow grass
@@ -68,15 +114,7 @@ ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
 
-// --- Farm soil patch (dark tilled Tanzanian earth) ---
-const soilPatch = new THREE.Mesh(
-  new THREE.PlaneGeometry(18, 12, 8, 8),
-  new THREE.MeshLambertMaterial({ color: 0x6b3420 })
-);
-soilPatch.rotation.x = -Math.PI / 2;
-soilPatch.position.set(0, 0.06, 0);
-soilPatch.receiveShadow = true;
-scene.add(soilPatch);
+// Farm plot built by farming.js
 
 // --- Dry grass tufts scattered across savanna ---
 function createGrassTuft(x, z) {
@@ -96,43 +134,16 @@ function createGrassTuft(x, z) {
     scene.add(blade);
   }
 }
-for (let i = 0; i < 120; i++) {
+for (let i = 0; i < 300; i++) {
   const angle = Math.random() * Math.PI * 2;
-  const dist = 12 + Math.random() * 50;
+  const dist = 14 + Math.random() * 220;
   createGrassTuft(Math.cos(angle)*dist, Math.sin(angle)*dist);
 }
 
-// --- Crop rows (maize — taller, with drooping leaves) ---
-function createCropRow(x, z, count) {
-  for (let i = 0; i < count; i++) {
-    const h = 1.0 + Math.random() * 1.4;
-    const stalk = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.04, 0.07, h, 5),
-      new THREE.MeshLambertMaterial({ color: 0x4a8a28 })
-    );
-    stalk.position.set(x + i * 1.2 - count * 0.6, h / 2, z);
-    stalk.castShadow = true;
-    scene.add(stalk);
-
-    // Maize leaves (2-3 per stalk, drooping)
-    const leafCount = 2 + Math.floor(Math.random() * 2);
-    for (let l = 0; l < leafCount; l++) {
-      const leaf = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.8, 0.12),
-        new THREE.MeshLambertMaterial({ color: 0x5aaa38, side: THREE.DoubleSide })
-      );
-      leaf.position.set(x + i * 1.2 - count * 0.6, h * (0.4 + l * 0.2), z);
-      leaf.rotation.y = Math.random() * Math.PI;
-      leaf.rotation.z = 0.2 + Math.random() * 0.4;
-      scene.add(leaf);
-    }
-  }
-}
-for (let row = -4; row <= 4; row += 2) createCropRow(0, row, 12);
 
 // --- Kilimanjaro in the distance ---
 const kiliGroup = new THREE.Group();
-kiliGroup.position.set(-70, 0, -80);
+kiliGroup.position.set(-180, 0, -220);
 // Main mountain body
 const kiliGeo = new THREE.ConeGeometry(30, 22, 8);
 const kiliMat = new THREE.MeshLambertMaterial({ color: 0x6a7a8a });
@@ -164,10 +175,12 @@ function createHill(x, z, radius, height, color) {
   hill.scale.y = height / radius;
   scene.add(hill);
 }
-createHill(50, -50, 20, 6, 0x7a8a5a);
-createHill(-50, -60, 25, 8, 0x8a9060);
-createHill(70, 40, 18, 5, 0x6a7a4a);
-createHill(-60, 50, 22, 7, 0x7a8050);
+createHill(120, -130, 35, 10, 0x7a8a5a);
+createHill(-130, -150, 45, 14, 0x8a9060);
+createHill(160, 100, 30, 8, 0x6a7a4a);
+createHill(-140, 130, 40, 12, 0x7a8050);
+createHill(80, 180, 28, 7, 0x7a8a5a);
+createHill(-90, -190, 38, 11, 0x8a9060);
 
 // --- Red rocks / boulders (laterite outcrops) ---
 function createRock(x, z, s) {
@@ -175,13 +188,14 @@ function createRock(x, z, s) {
     new THREE.DodecahedronGeometry(s, 0),
     new THREE.MeshLambertMaterial({ color: 0x8b4525 + Math.floor(Math.random() * 0x151515) })
   );
-  rock.position.set(x, s * 0.4, z);
+  rock.position.set(x, groundAt(x, z) + s * 0.4, z);
   rock.rotation.set(Math.random(), Math.random(), Math.random());
   rock.castShadow = true;
   scene.add(rock);
 }
-[[12, -8, 0.5], [-10, -10, 0.7], [14, 7, 0.4], [-8, 10, 0.6],
- [22, -5, 0.3], [-14, -6, 0.5], [8, 14, 0.35]
+[[12,-8,0.5],[-10,-10,0.7],[14,7,0.4],[-8,10,0.6],[22,-5,0.3],[-14,-6,0.5],[8,14,0.35],
+ [40,-20,0.8],[-35,15,0.6],[55,30,0.9],[-50,-30,0.7],[30,45,0.5],[-45,40,0.8],
+ [65,-10,0.6],[70,25,1.0],[-60,-15,0.7],[80,-40,0.5],[-70,20,0.9]
 ].forEach(([x,z,s]) => createRock(x,z,s));
 
 // ============================================================
@@ -259,10 +273,11 @@ wire.position.set(0, 1.1, 0.1);
 rpiGroup.add(wire);
 
 scene.add(rpiGroup);
+rpiGroup.visible = false; // hidden — unlockable shop item later
 
 // --- Cell Tower ---
 const towerGroup = new THREE.Group();
-towerGroup.position.set(20, 0, -15);
+towerGroup.position.set(20, groundAt(20, -15), -15);
 
 const legMat = new THREE.MeshLambertMaterial({ color: 0xaaaaaa });
 for (let i = 0; i < 3; i++) {
@@ -352,73 +367,182 @@ dish.position.set(1.2, 3.3, 0);
 dish.rotation.x = Math.PI * 0.7;
 serverGroup.add(dish);
 scene.add(serverGroup);
+serverGroup.visible = false; // hidden — unlockable shop item later
 
-// --- Farmer hut (Tanzanian boma style) ---
-const hutGroup = new THREE.Group();
-hutGroup.position.set(-18, 0, 12);
+// --- Small house (concrete block + mabati roof, Tanzania 2026) ---
+const houseGroup = new THREE.Group();
+const _hX = -18, _hZ = 12;
+houseGroup.position.set(_hX, groundAt(_hX, _hZ), _hZ);
 
-// Mud-brick circular wall
-const wall = new THREE.Mesh(
-  new THREE.CylinderGeometry(2.5, 2.8, 2.5, 12),
-  new THREE.MeshLambertMaterial({ color: 0xa0704a })
-);
-wall.position.y = 1.25;
-wall.castShadow = true;
-hutGroup.add(wall);
+const _wallMat  = new THREE.MeshLambertMaterial({ color: 0xf0e8d0 });
+const _metalMat = new THREE.MeshLambertMaterial({ color: 0x7a7a7a });
+const _woodMat  = new THREE.MeshLambertMaterial({ color: 0x5a3010 });
+const _winMat   = new THREE.MeshLambertMaterial({ color: 0x2a3a5a, transparent: true, opacity: 0.75 });
+const _frameMat = new THREE.MeshLambertMaterial({ color: 0xbbbbbb });
+const _concMat  = new THREE.MeshLambertMaterial({ color: 0x999999 });
 
-// Thatched makuti roof
-const thatch = new THREE.Mesh(
-  new THREE.ConeGeometry(3.4, 2.2, 12),
-  new THREE.MeshLambertMaterial({ color: 0x9a7a20 })
-);
-thatch.position.y = 3.6;
-thatch.castShadow = true;
-hutGroup.add(thatch);
+// Main walls (5 m wide/X, 4 m deep/Z, 2.5 m tall)
+const hWalls = new THREE.Mesh(new THREE.BoxGeometry(5, 2.5, 4), _wallMat);
+hWalls.position.y = 1.25;
+hWalls.castShadow = true;
+hWalls.receiveShadow = true;
+houseGroup.add(hWalls);
 
-// Door opening
-const door = new THREE.Mesh(
-  new THREE.PlaneGeometry(0.8, 1.6),
-  new THREE.MeshLambertMaterial({ color: 0x3a2510 })
-);
-door.position.set(0, 0.8, 2.81);
-hutGroup.add(door);
-
-// Boma fence (thorn-branch fence around hut)
-const fenceMat = new THREE.MeshLambertMaterial({ color: 0x6b5030 });
-for (let a = 0; a < Math.PI * 2; a += 0.3) {
-  if (a > 1.3 && a < 1.85) continue; // gap for entrance
-  const fencePost = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.04, 0.05, 1.2, 4),
-    fenceMat
-  );
-  fencePost.position.set(Math.cos(a) * 4.5, 0.6, Math.sin(a) * 4.5);
-  fencePost.rotation.z = (Math.random() - 0.5) * 0.15;
-  hutGroup.add(fencePost);
+// Gable roof — two angled corrugated-iron panels
+for (const s of [-1, 1]) {
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.10, 2.3), _metalMat);
+  panel.position.set(0, 2.78, s * 1.05);
+  panel.rotation.x = s * 0.24;
+  panel.castShadow = true;
+  houseGroup.add(panel);
 }
-scene.add(hutGroup);
+const hRidge = new THREE.Mesh(
+  new THREE.BoxGeometry(5.5, 0.12, 0.2),
+  new THREE.MeshLambertMaterial({ color: 0x555555 })
+);
+hRidge.position.y = 3.06;
+houseGroup.add(hRidge);
+
+// Door on +X face (east, facing the farm)
+const hDoor = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.0, 0.9), _woodMat);
+hDoor.position.set(2.54, 1.0, 0);
+houseGroup.add(hDoor);
+const hDoorFrame = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.18, 1.06), _frameMat);
+hDoorFrame.position.set(2.52, 1.09, 0);
+houseGroup.add(hDoorFrame);
+
+// Concrete step
+const hStep = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.18, 1.1), _concMat);
+hStep.position.set(2.72, 0.09, 0);
+houseGroup.add(hStep);
+
+// Veranda overhang + two wooden posts
+const hVeranda = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.09, 1.5), _metalMat);
+hVeranda.position.set(3.24, 2.52, 0);
+houseGroup.add(hVeranda);
+for (const s of [-0.55, 0.55]) {
+  const vPost = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.065, 2.5, 6), _woodMat);
+  vPost.position.set(3.90, 1.25, s);
+  houseGroup.add(vPost);
+}
+
+// Windows on front face (flanking door)
+for (const s of [-1.35, 1.35]) {
+  const wf = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.80, 1.0), _frameMat);
+  wf.position.set(2.51, 1.65, s);
+  houseGroup.add(wf);
+  const wg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.65, 0.85), _winMat);
+  wg.position.set(2.525, 1.65, s);
+  houseGroup.add(wg);
+}
+// Side windows
+for (const s of [-1, 1]) {
+  const wf = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.75, 0.07), _frameMat);
+  wf.position.set(0.6, 1.65, s * 2.01);
+  houseGroup.add(wf);
+  const wg = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.60, 0.08), _winMat);
+  wg.position.set(0.6, 1.65, s * 2.025);
+  houseGroup.add(wg);
+}
+
+// Blue plastic water storage tank
+const hTank = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.45, 0.45, 0.90, 10),
+  new THREE.MeshLambertMaterial({ color: 0x2255bb })
+);
+hTank.position.set(-2.0, 0.45, -1.7);
+houseGroup.add(hTank);
+const hTankLid = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.46, 0.46, 0.06, 10),
+  new THREE.MeshLambertMaterial({ color: 0x1a3a88 })
+);
+hTankLid.position.set(-2.0, 0.93, -1.7);
+houseGroup.add(hTankLid);
+
+// Wooden fence posts flanking the entrance gate
+for (const s of [-1.8, 1.8]) {
+  for (let i = 0; i < 3; i++) {
+    const fp = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 1.4, 5), _woodMat);
+    fp.position.set(4.2 + i * 0.8, 0.7, s);
+    houseGroup.add(fp);
+    if (i < 2) {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.06, 0.04), _woodMat);
+      rail.position.set(4.6 + i * 0.8, 0.92, s);
+      houseGroup.add(rail);
+    }
+  }
+}
+
+scene.add(houseGroup);
+
+// Door world position — used for sleep interaction in app.js
+const houseDoorPos = new THREE.Vector3(_hX + 2.5, groundAt(_hX, _hZ) + 1.0, _hZ);
+//oil lamp
+// --- Farm oil lamp ---
+    const lampGroup = new THREE.Group();
+    const _lx = FARM_ORIGIN_X - 1.2, _lz = FARM_ORIGIN_Z + 2;
+    lampGroup.position.set(_lx, groundAt(_lx, _lz), _lz);
+
+    const lampPost = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, 0.055, 2.8, 6),
+      new THREE.MeshLambertMaterial({ color: 0x6b4a1a })
+    );
+    lampPost.position.y = 1.4;
+    lampGroup.add(lampPost);
+
+    const lanternBody = new THREE.Mesh(
+      new THREE.BoxGeometry(0.22, 0.28, 0.22),
+      new THREE.MeshLambertMaterial({ color: 0x222222 })
+    );
+    lanternBody.position.y = 2.9;
+    lampGroup.add(lanternBody);
+
+    const glassMat = new THREE.MeshBasicMaterial({ color: 0xffaa22, transparent: true, opacity: 0.9 });
+    for (let i = 0; i < 4; i++) {
+      const pane = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.22), glassMat);
+      const a = (i / 4) * Math.PI * 2;
+      pane.position.set(Math.cos(a) * 0.112, 2.9, Math.sin(a) * 0.112);
+      pane.rotation.y = a;
+      lampGroup.add(pane);
+    }
+
+    const lampCap = new THREE.Mesh(
+      new THREE.ConeGeometry(0.18, 0.14, 4),
+      new THREE.MeshLambertMaterial({ color: 0x111111 })
+    );
+    lampCap.position.y = 3.1;
+    lampGroup.add(lampCap);
+    scene.add(lampGroup);
+
+    const farmLamp = new THREE.PointLight(0xffaa33, 0, 14);
+    farmLamp.position.set(_lx, groundAt(_lx, _lz) + 2.9, _lz);
+    scene.add(farmLamp);
+
+    
+
+
+
 
 // --- Acacia trees (flat-topped, iconic Tanzania) ---
 function createAcacia(x, z, s) {
+  const gY = groundAt(x, z);
   const trunkH = 3 * s;
-  // Trunk — slender, slightly curved
   const trunk = new THREE.Mesh(
     new THREE.CylinderGeometry(0.08 * s, 0.18 * s, trunkH, 6),
     new THREE.MeshLambertMaterial({ color: 0x5a3a1a })
   );
-  trunk.position.set(x, trunkH / 2, z);
+  trunk.position.set(x, gY + trunkH / 2, z);
   trunk.castShadow = true;
   scene.add(trunk);
 
-  // Flat canopy (wide, thin disc — the classic acacia silhouette)
   const canopy = new THREE.Mesh(
     new THREE.CylinderGeometry(2.5 * s, 2.8 * s, 0.5 * s, 10),
     new THREE.MeshLambertMaterial({ color: 0x4a7a28 + Math.floor(Math.random() * 0x101000) })
   );
-  canopy.position.set(x, trunkH + 0.2 * s, z);
+  canopy.position.set(x, gY + trunkH + 0.2 * s, z);
   canopy.castShadow = true;
   scene.add(canopy);
 
-  // Some branches reaching up into canopy
   for (let b = 0; b < 3; b++) {
     const bAngle = (b / 3) * Math.PI * 2 + Math.random() * 0.5;
     const branch = new THREE.Mesh(
@@ -427,7 +551,7 @@ function createAcacia(x, z, s) {
     );
     branch.position.set(
       x + Math.cos(bAngle) * 0.5 * s,
-      trunkH * 0.7,
+      gY + trunkH * 0.7,
       z + Math.sin(bAngle) * 0.5 * s
     );
     branch.rotation.z = Math.cos(bAngle) * 0.5;
@@ -438,12 +562,13 @@ function createAcacia(x, z, s) {
 
 // --- Baobab trees (fat trunk, sparse crown) ---
 function createBaobab(x, z, s) {
+  const gY = groundAt(x, z);
   // Massive trunk
   const trunk = new THREE.Mesh(
     new THREE.CylinderGeometry(0.8 * s, 1.2 * s, 3.5 * s, 8),
     new THREE.MeshLambertMaterial({ color: 0x8a7a6a })
   );
-  trunk.position.set(x, 1.75 * s, z);
+  trunk.position.set(x, gY + 1.75 * s, z);
   trunk.castShadow = true;
   scene.add(trunk);
 
@@ -457,14 +582,13 @@ function createBaobab(x, z, s) {
     );
     branch.position.set(
       x + Math.cos(bAngle) * 0.6 * s,
-      3.5 * s + bLen * 0.2,
+      gY + 3.5 * s + bLen * 0.2,
       z + Math.sin(bAngle) * 0.6 * s
     );
     branch.rotation.z = Math.cos(bAngle) * 0.7;
     branch.rotation.x = Math.sin(bAngle) * 0.7;
     scene.add(branch);
 
-    // Small leaf clusters at branch tips
     if (Math.random() > 0.3) {
       const leafCluster = new THREE.Mesh(
         new THREE.SphereGeometry(0.4 * s, 6, 4),
@@ -472,7 +596,7 @@ function createBaobab(x, z, s) {
       );
       leafCluster.position.set(
         x + Math.cos(bAngle) * (0.6 + bLen * 0.35) * s,
-        3.5 * s + bLen * 0.6,
+        gY + 3.5 * s + bLen * 0.6,
         z + Math.sin(bAngle) * (0.6 + bLen * 0.35) * s
       );
       scene.add(leafCluster);
@@ -481,14 +605,22 @@ function createBaobab(x, z, s) {
 }
 
 // Place acacias (scattered across savanna)
-[[-25,-8,1.2],[-22,-5,1],[-28,2,1.3],[28,-10,1.3],[30,5,1],[25,12,1.1],
- [-12,-18,1.1],[15,-20,1.2],[-8,20,1],[10,22,1.1],[-30,-15,1.3],
- [32,-18,1.0],[-15,22,0.9],[35,20,1.2],[18,25,1.0],[-35,-10,1.1],
- [40,-15,0.9],[-25,18,1.0]
+[
+  [-25,-8,1.2],[-22,-5,1],[-28,2,1.3],[28,-10,1.3],[30,5,1],[25,12,1.1],
+  [-12,-18,1.1],[15,-20,1.2],[-8,20,1],[10,22,1.1],[-30,-15,1.3],
+  [32,-18,1.0],[-15,22,0.9],[35,20,1.2],[18,25,1.0],[-35,-10,1.1],
+  [40,-15,0.9],[-25,18,1.0],
+  // Extended savanna
+  [60,-30,1.1],[70,10,1.3],[-65,20,1.0],[55,50,1.2],[-55,-50,1.4],
+  [80,-60,1.0],[-75,40,1.1],[90,30,1.3],[-80,-25,1.0],[100,-10,1.2],
+  [45,-80,1.0],[-90,60,1.1],[110,50,0.9],[-100,-70,1.2],[75,80,1.0],
+  [-60,90,1.1],[120,-30,1.0],[-110,10,1.3],[95,-90,0.9],[65,-110,1.1]
 ].forEach(([x,z,s]) => createAcacia(x,z,s));
 
 // Place baobabs (fewer, they're rare and iconic)
-[[-20,8,1.4],[38,8,1.2],[-40,-20,1.5],[45,25,1.1]
+[
+  [-20,8,1.4],[38,8,1.2],[-40,-20,1.5],[45,25,1.1],
+  [85,-45,1.3],[-90,55,1.4],[110,-80,1.2],[-105,70,1.3]
 ].forEach(([x,z,s]) => createBaobab(x,z,s));
 
 // --- African sun (big, hot, golden) ---
@@ -512,6 +644,56 @@ const glow2 = new THREE.Mesh(
 );
 glow2.position.copy(sun.position);
 scene.add(glow2);
+
+// --- Moon ---
+const moon = new THREE.Mesh(
+  new THREE.SphereGeometry(2.2, 12, 12),
+  new THREE.MeshBasicMaterial({ color: 0xddeeff })
+);
+moon.position.set(-60, 50, 40);
+moon.visible = false;
+scene.add(moon);
+const moonGlow = new THREE.Mesh(
+  new THREE.SphereGeometry(5, 12, 12),
+  new THREE.MeshBasicMaterial({ color: 0x8899cc, transparent: true, opacity: 0.08 })
+);
+moonGlow.position.copy(moon.position);
+moonGlow.visible = false;
+scene.add(moonGlow);
+
+// --- Stars ---
+const starGeo = new THREE.BufferGeometry();
+const starPositions = new Float32Array(800 * 3);
+for (let i = 0; i < 800; i++) {
+  const theta = Math.random() * Math.PI * 2;
+  const phi   = Math.acos(2 * Math.random() - 1);
+  const r     = 380;
+  starPositions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+  starPositions[i * 3 + 1] = Math.abs(r * Math.cos(phi)) + 20; // upper hemisphere only
+  starPositions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+}
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+const starField = new THREE.Points(
+  starGeo,
+  new THREE.PointsMaterial({ color: 0xffffff, size: 2, sizeAttenuation: false })
+);
+starField.visible = false;
+scene.add(starField);
+
+// --- Sky dome — panoramic texture tinted by day/night cycle in app.js ---
+const skyDomeMat = new THREE.MeshBasicMaterial({
+  side: THREE.BackSide,
+  depthWrite: false,
+  fog: false,
+  color: 0x87ceeb, // placeholder until texture loads
+});
+const skyDome = new THREE.Mesh(new THREE.SphereGeometry(1900,40, 20), skyDomeMat);
+skyDome.renderOrder = -1;
+scene.add(skyDome);
+new THREE.TextureLoader().load('../img/skybox.jpg', tex => {
+  skyDomeMat.map = tex;
+  skyDomeMat.needsUpdate = true;
+});
 
 // --- Clouds (sparse, bright tropical cumulus) ---
 function createCloud(x,y,z) {
@@ -590,7 +772,7 @@ function createChicken(x, z) {
     leg.position.set(i * 0.08, 0.1, 0);
     g.add(leg);
   }
-  g.position.set(x, 0, z);
+  g.position.set(x, groundAt(x, z), z);
   g.rotation.y = Math.random() * Math.PI * 2;
   scene.add(g);
   chickens.push({
@@ -649,7 +831,7 @@ function createGoat(x, z) {
   tail.position.set(-0.45, 0.75, 0);
   tail.rotation.z = -0.6;
   g.add(tail);
-  g.position.set(x, 0, z);
+  g.position.set(x, groundAt(x, z), z);
   g.rotation.y = Math.random() * Math.PI * 2;
   g.castShadow = true;
   scene.add(g);
@@ -728,7 +910,7 @@ function createCow(x, z) {
   tail.position.set(-0.75, 0.8, 0);
   tail.rotation.z = 0.5;
   g.add(tail);
-  g.position.set(x, 0, z);
+  g.position.set(x, groundAt(x, z), z);
   g.rotation.y = Math.random() * Math.PI * 2;
   g.castShadow = true;
   scene.add(g);
@@ -815,14 +997,14 @@ function createGiraffe(x, z) {
   );
   tuft.position.set(-1.3, 2.3, 0);
   g.add(tuft);
-  g.position.set(x, 0, z);
+  g.position.set(x, groundAt(x, z), z);
   g.rotation.y = Math.random() * Math.PI * 2;
   g.castShadow = true;
   scene.add(g);
   return g;
 }
-const giraffe1 = createGiraffe(-35, -25);
-const giraffe2 = createGiraffe(40, -30);
+const giraffe1 = createGiraffe(-55, -45);
+const giraffe2 = createGiraffe(65, -50);
 
 // --- Hippo (chunky potato in the distance, maybe near a puddle) ---
 function createHippo(x, z) {
@@ -887,12 +1069,12 @@ function createHippo(x, z) {
   puddle.rotation.x = -Math.PI / 2;
   puddle.position.y = 0.02;
   g.add(puddle);
-  g.position.set(x, 0, z);
+  g.position.set(x, groundAt(x, z), z);
   g.rotation.y = Math.random() * Math.PI * 2;
   scene.add(g);
   return g;
 }
-const hippo = createHippo(35, 12);
+const hippo = createHippo(55, 22);
 
 // --- Elephant (big gentle giant far away) ---
 function createElephant(x, z) {
@@ -960,13 +1142,13 @@ function createElephant(x, z) {
   tail.position.set(-1.4, 1.5, 0);
   tail.rotation.z = 0.7;
   g.add(tail);
-  g.position.set(x, 0, z);
+  g.position.set(x, groundAt(x, z), z);
   g.rotation.y = Math.random() * Math.PI * 2;
   g.castShadow = true;
   scene.add(g);
   return g;
 }
-const elephant = createElephant(-40, -35);
+const elephant = createElephant(-70, -60);
 
 // ============================================================
 // SMS data flow particles
@@ -1004,3 +1186,78 @@ function getPointOnPath(path, t) {
   const seg = Math.min(Math.floor(t * segs), segs - 1);
   return new THREE.Vector3().lerpVectors(path[seg], path[seg + 1], (t * segs) - seg);
 }
+
+// ============================================================
+// Building collision boxes (AABB, XZ plane)
+// Used by controls.js updatePlayer()
+// ============================================================
+const worldColliders = [
+  { x1: -21, x2: -15, z1: 10, z2: 14, name: 'house'  },  // houseGroup @ (-18, 12), 5×4 m
+  { x1:  16, x2:  24, z1: -19, z2: -11, name: 'tower' },  // towerGroup @ (20, -15)
+];
+
+// Sky dome background is handled above — day/night tints it in app.js
+
+// ============================================================
+// Rifle viewmodel (positioned relative to camera each frame in app.js)
+// ============================================================
+const rifleModel = new THREE.Group();
+
+const _rfStockMat = new THREE.MeshLambertMaterial({ color: 0x4a2a0e });
+const _rfMetMat   = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
+
+// Wooden stock (butt end)
+const _rfStock = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.042, 0.24), _rfStockMat);
+_rfStock.position.z = 0.17;
+rifleModel.add(_rfStock);
+
+// Metal receiver / action
+const _rfReceiver = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.044, 0.20), _rfMetMat);
+_rfReceiver.position.z = -0.02;
+rifleModel.add(_rfReceiver);
+
+// Barrel (long thin cylinder pointing -Z = forward)
+const _rfBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.008, 0.42, 8), _rfMetMat);
+_rfBarrel.rotation.x = Math.PI / 2;
+_rfBarrel.position.set(0, 0.010, -0.25);
+rifleModel.add(_rfBarrel);
+
+// Scope tube
+const _rfScope = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.18, 8), _rfMetMat);
+_rfScope.rotation.x = Math.PI / 2;
+_rfScope.position.set(0, 0.040, -0.01);
+rifleModel.add(_rfScope);
+
+// Scope objective lens (wider front end)
+const _rfScopeObj = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.012, 0.04, 8), _rfMetMat);
+_rfScopeObj.rotation.x = Math.PI / 2;
+_rfScopeObj.position.set(0, 0.040, -0.12);
+rifleModel.add(_rfScopeObj);
+
+// Pistol grip
+const _rfGrip = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.055, 0.030), _rfMetMat);
+_rfGrip.position.set(0.002, -0.025, 0.06);
+_rfGrip.rotation.x = -0.35;
+rifleModel.add(_rfGrip);
+
+// Wooden forestock (under barrel)
+const _rfFore = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.025, 0.22), _rfStockMat);
+_rfFore.position.set(0, -0.014, -0.12);
+rifleModel.add(_rfFore);
+
+// Muzzle flash (briefly shown on shoot via hunting.js)
+const muzzleFlash = new THREE.Mesh(
+  new THREE.SphereGeometry(0.024, 6, 4),
+  new THREE.MeshBasicMaterial({ color: 0xffee44 })
+);
+muzzleFlash.position.set(0, 0.010, -0.468);
+muzzleFlash.visible = false;
+rifleModel.add(muzzleFlash);
+
+rifleModel.visible = false;
+scene.add(rifleModel);
+
+// ============================================================
+// Nokia 3D Viewmodel — REMOVED (using 2D HTML widget instead)
+// ============================================================
+// nokia3D intentionally null — 2D HTML Nokia widget is used instead

@@ -1,10 +1,11 @@
 // ============================================================
-// Nokia SMS logic
+// Nokia HTML widget — state & toggle
+// Toggled by N key (controls.js) or clicking the widget
 // ============================================================
-let nokiaOn = false;
+let nokiaOn  = false;
 let smsIndex = 0;
 
-// Prebuilt messages (fallback / demo mode)
+// Prebuilt SMS messages (demo / fallback)
 const prebuiltSMS = [
   `SoilSMS 17/03 08:42\nSTATUS: Soil dry\n(34%) pH 6.1\nNUTRIENTS: N low\n(85mg/kg) P+K ok\nACTION: Add urea.\nRain in 4 days.\nPLANT: Maize/beans\nafter rain.`,
   `SoilSMS 17/03 14:20\nSTATUS: Moisture\nrising (41%) pH 6.3\nTemp 26C humid 78%\nNUTRIENTS: All ok\nACTION: No action\nneeded. Conditions\nimproving.\nNEXT: Check in 6h`,
@@ -12,143 +13,73 @@ const prebuiltSMS = [
   `SoilSMS 18/03 06:30\nSTATUS: Overnight\nrain detected.\nMoisture 68% GOOD\npH 6.0 Temp 22C\nACTION: Perfect\nplanting window!\nSow maize today.\nNext SMS in 12h.`,
 ];
 
-// LLM-generated messages get pushed here
-let llmSMS = [];
-// Which list the Nokia cycles through
+let llmSMS        = [];
 let activeSMSList = prebuiltSMS;
 
 function toggleNokia() {
-  const screen = document.getElementById('nokia-screen');
-  const text = document.getElementById('nokia-text');
-  const hint = document.getElementById('nokia-hint');
+  const phoneEl = document.getElementById('nokia-container');
+  const screen  = document.getElementById('nokia-screen');
+  const text    = document.getElementById('nokia-text');
+  const hint    = document.getElementById('nokia-hint');
+  if (!screen) return;
 
   if (!nokiaOn) {
+    // Show widget, turn screen on
+    phoneEl.style.display = '';
     nokiaOn = true;
     screen.classList.add('lit');
     text.textContent = activeSMSList[smsIndex];
-    hint.textContent = activeSMSList.length > 1 ? 'TAP FOR NEXT' : 'TAP TO CLOSE';
+    hint.textContent = activeSMSList.length > 1 ? '[ N ] NEXT' : '[ N ] CLOSE';
     smsIndex = (smsIndex + 1) % activeSMSList.length;
+    screen.scrollTop = 0;
   } else {
+    // Cycle; wrap-around turns screen off and hides widget
     text.textContent = activeSMSList[smsIndex];
     smsIndex = (smsIndex + 1) % activeSMSList.length;
+    screen.scrollTop = 0;
     if (smsIndex === 0) {
       nokiaOn = false;
       screen.classList.remove('lit');
       text.textContent = 'No new messages';
-      hint.textContent = 'TAP TO READ SMS';
+      hint.textContent = '[ N ] READ SMS';
+      phoneEl.style.display = 'none';
     }
   }
 }
 
 // ============================================================
-// Sensor simulation
+// Sensor simulation — logic preserved for later gameplay use
 // ============================================================
 const S = { moisture: 34.2, ph: 6.1, soilTemp: 24.5, airTemp: 28.0, humid: 72.0, n: 85, p: 30, k: 160 };
-let sensorMode = 'auto'; // 'auto' or 'manual'
 
-// Realistic value ranges for clamping
 const SENSOR_LIMITS = {
-  moisture:  { min: 0,   max: 100 },
-  ph:        { min: 3,   max: 10  },
-  soilTemp:  { min: -10, max: 60  },
-  airTemp:   { min: -10, max: 55  },
-  humid:     { min: 0,   max: 100 },
-  n:         { min: 0,   max: 500 },
-  p:         { min: 0,   max: 200 },
-  k:         { min: 0,   max: 500 },
+  moisture: { min: 0,   max: 100 },
+  ph:       { min: 3,   max: 10  },
+  soilTemp: { min: -10, max: 60  },
+  airTemp:  { min: -10, max: 55  },
+  humid:    { min: 0,   max: 100 },
+  n:        { min: 0,   max: 500 },
+  p:        { min: 0,   max: 200 },
+  k:        { min: 0,   max: 500 },
 };
-
-function setSensorMode(mode) {
-  sensorMode = mode;
-  document.getElementById('btn-auto').classList.toggle('active', mode === 'auto');
-  document.getElementById('btn-manual').classList.toggle('active', mode === 'manual');
-  document.getElementById('sensor-auto').style.display = mode === 'auto' ? '' : 'none';
-  document.getElementById('sensor-manual').style.display = mode === 'manual' ? '' : 'none';
-  // Sync manual inputs with current S values when switching to manual
-  if (mode === 'manual') {
-    document.getElementById('m-moisture').value = S.moisture.toFixed(1);
-    document.getElementById('m-ph').value = S.ph.toFixed(1);
-    document.getElementById('m-soiltemp').value = S.soilTemp.toFixed(1);
-    document.getElementById('m-airtemp').value = S.airTemp.toFixed(1);
-    document.getElementById('m-humid').value = S.humid.toFixed(1);
-    document.getElementById('m-n').value = Math.round(S.n);
-    document.getElementById('m-p').value = Math.round(S.p);
-    document.getElementById('m-k').value = Math.round(S.k);
-  }
-}
 
 function clamp(val, min, max) { return Math.max(min, Math.min(max, val)); }
 
-function applyManualSensors() {
-  S.moisture = clamp(parseFloat(document.getElementById('m-moisture').value) || 0, SENSOR_LIMITS.moisture.min, SENSOR_LIMITS.moisture.max);
-  S.ph       = clamp(parseFloat(document.getElementById('m-ph').value) || 0, SENSOR_LIMITS.ph.min, SENSOR_LIMITS.ph.max);
-  S.soilTemp = clamp(parseFloat(document.getElementById('m-soiltemp').value) || 0, SENSOR_LIMITS.soilTemp.min, SENSOR_LIMITS.soilTemp.max);
-  S.airTemp  = clamp(parseFloat(document.getElementById('m-airtemp').value) || 0, SENSOR_LIMITS.airTemp.min, SENSOR_LIMITS.airTemp.max);
-  S.humid    = clamp(parseFloat(document.getElementById('m-humid').value) || 0, SENSOR_LIMITS.humid.min, SENSOR_LIMITS.humid.max);
-  S.n        = clamp(parseFloat(document.getElementById('m-n').value) || 0, SENSOR_LIMITS.n.min, SENSOR_LIMITS.n.max);
-  S.p        = clamp(parseFloat(document.getElementById('m-p').value) || 0, SENSOR_LIMITS.p.min, SENSOR_LIMITS.p.max);
-  S.k        = clamp(parseFloat(document.getElementById('m-k').value) || 0, SENSOR_LIMITS.k.min, SENSOR_LIMITS.k.max);
-
-  // Write clamped values back to inputs
-  document.getElementById('m-moisture').value = S.moisture.toFixed(1);
-  document.getElementById('m-ph').value = S.ph.toFixed(1);
-  document.getElementById('m-soiltemp').value = S.soilTemp.toFixed(1);
-  document.getElementById('m-airtemp').value = S.airTemp.toFixed(1);
-  document.getElementById('m-humid').value = S.humid.toFixed(1);
-  document.getElementById('m-n').value = Math.round(S.n);
-  document.getElementById('m-p').value = Math.round(S.p);
-  document.getElementById('m-k').value = Math.round(S.k);
-
-  // Update the auto display too so AI analysis reads correct values
-  refreshSensorDisplay();
-}
-
-function refreshSensorDisplay() {
-  document.getElementById('v-moisture').textContent = S.moisture.toFixed(1) + '%';
-  document.getElementById('v-ph').textContent = S.ph.toFixed(1);
-  document.getElementById('v-soiltemp').textContent = S.soilTemp.toFixed(1) + '\u00B0C';
-  document.getElementById('v-airtemp').textContent = S.airTemp.toFixed(1) + '\u00B0C';
-  document.getElementById('v-humid').textContent = S.humid.toFixed(1) + '%';
-  document.getElementById('v-n').textContent = Math.round(S.n) + ' mg/kg';
-  document.getElementById('v-p').textContent = Math.round(S.p) + ' mg/kg';
-  document.getElementById('v-k').textContent = Math.round(S.k) + ' mg/kg';
-}
-
 function updateSensors() {
-  // Only auto-drift values in auto mode
-  if (sensorMode === 'auto') {
-    S.moisture = Math.max(15, Math.min(80, S.moisture + (Math.random() - 0.48) * 0.5));
-    S.ph = Math.max(4.5, Math.min(8.0, S.ph + (Math.random() - 0.5) * 0.02));
-    S.soilTemp += (Math.random() - 0.5) * 0.1;
-    S.airTemp += (Math.random() - 0.5) * 0.15;
-    S.humid = Math.max(30, Math.min(95, S.humid + (Math.random() - 0.5) * 0.3));
-    S.n = Math.max(20, Math.min(200, S.n + (Math.random() - 0.5)));
-    S.p = Math.max(10, Math.min(80, S.p + (Math.random() - 0.5) * 0.5));
-    S.k = Math.max(50, Math.min(300, S.k + (Math.random() - 0.5)));
-  }
-
-  refreshSensorDisplay();
-
-  const now = new Date();
-  document.getElementById('v-time').textContent =
-    now.getHours().toString().padStart(2,'0') + ':' +
-    now.getMinutes().toString().padStart(2,'0') + ':' +
-    now.getSeconds().toString().padStart(2,'0');
+  S.moisture = Math.max(15, Math.min(80, S.moisture + (Math.random() - 0.48) * 0.5));
+  S.ph       = Math.max(4.5, Math.min(8.0, S.ph + (Math.random() - 0.5) * 0.02));
+  S.soilTemp += (Math.random() - 0.5) * 0.1;
+  S.airTemp  += (Math.random() - 0.5) * 0.15;
+  S.humid    = Math.max(30, Math.min(95, S.humid + (Math.random() - 0.5) * 0.3));
+  S.n        = Math.max(20, Math.min(200, S.n + (Math.random() - 0.5)));
+  S.p        = Math.max(10, Math.min(80,  S.p + (Math.random() - 0.5) * 0.5));
+  S.k        = Math.max(50, Math.min(300, S.k + (Math.random() - 0.5)));
 }
 
 // ============================================================
-// AI Mode switching & OpenRouter LLM integration
+// AI / LLM — preserved for later use
+// Call runAnalysis() from game code; key auto-read from settings
 // ============================================================
-let aiMode = 'demo'; // 'demo' or 'llm'
-
-function setAIMode(mode) {
-  aiMode = mode;
-  document.getElementById('btn-demo').classList.toggle('active', mode === 'demo');
-  document.getElementById('btn-llm').classList.toggle('active', mode === 'llm');
-  document.getElementById('llm-fields').classList.toggle('disabled', mode !== 'llm');
-}
-
-// System prompt taken from the real SoilSMS server
 const SYSTEM_PROMPT = `You are an agronomist assistant helping smallholder farmers in rural Tanzania.
 You receive soil sensor data and weather forecast data, then produce a practical SMS-friendly report.
 
@@ -173,35 +104,9 @@ pH interpretation:
 Moisture interpretation:
   <20% = very dry, 20-40% = dry, 40-70% = good, >70% = waterlogged`;
 
-async function runAnalysis() {
-  const btn = document.getElementById('ai-analyze-btn');
-  const status = document.getElementById('ai-status');
-
-  if (aiMode === 'demo') {
-    // Just cycle to a random prebuilt message and show it on Nokia
-    activeSMSList = prebuiltSMS;
-    smsIndex = Math.floor(Math.random() * prebuiltSMS.length);
-    nokiaOn = false;
-    toggleNokia();
-    status.style.color = '#7cfc00';
-    status.textContent = 'Demo SMS delivered to Nokia';
-    setTimeout(() => status.textContent = '', 3000);
-    return;
-  }
-
-  // LLM mode
-  const apiKey = document.getElementById('api-key').value.trim();
-  if (!apiKey) {
-    status.style.color = '#e74c3c';
-    status.textContent = 'Enter your OpenRouter API key';
-    return;
-  }
-
-  const model = document.getElementById('llm-model').value;
-  btn.disabled = true;
-  btn.textContent = 'ANALYZING...';
-  status.style.color = '#f1c40f';
-  status.textContent = 'Sending sensor data to ' + model.split('/')[1] + '...';
+async function runAnalysis(apiKey, model = 'arcee-ai/trinity-large-preview:free') {
+  apiKey = apiKey || localStorage.getItem('farmsim_openrouter_key') || '';
+  if (!apiKey) return { ok: false, error: 'No API key — configure one in Settings' };
 
   const userMessage = `SOIL SENSOR READING (node FARM001):
 Moisture: ${S.moisture.toFixed(1)}%
@@ -227,13 +132,13 @@ Provide your SMS advisory now.`;
         'Authorization': 'Bearer ' + apiKey,
         'Content-Type': 'application/json',
         'HTTP-Referer': window.location.href,
-        'X-Title': 'SoilSMS Demo'
+        'X-Title': 'SoilSMS Farm Game'
       },
       body: JSON.stringify({
-        model: model,
+        model,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userMessage }
+          { role: 'user',   content: userMessage }
         ],
         max_tokens: 300,
         temperature: 0.7
@@ -245,36 +150,28 @@ Provide your SMS advisory now.`;
       throw new Error(err.error?.message || `HTTP ${resp.status}`);
     }
 
-    const data = await resp.json();
+    const data   = await resp.json();
     const advice = data.choices?.[0]?.message?.content?.trim();
-
     if (!advice) throw new Error('Empty response from model');
 
-    // Format for Nokia screen (wrap lines)
-    const now = new Date();
+    const now     = new Date();
     const dateStr = now.getDate().toString().padStart(2,'0') + '/' +
                     (now.getMonth()+1).toString().padStart(2,'0') + ' ' +
                     now.getHours().toString().padStart(2,'0') + ':' +
                     now.getMinutes().toString().padStart(2,'0');
 
     const formatted = `SoilSMS ${dateStr}\n${advice}`;
-
-    // Add to LLM list & show on Nokia
     llmSMS.unshift(formatted);
     if (llmSMS.length > 10) llmSMS.pop();
     activeSMSList = llmSMS;
-    smsIndex = 0;
+    smsIndex      = 0;
+
+    // Show immediately on Nokia
     nokiaOn = false;
     toggleNokia();
 
-    status.style.color = '#7cfc00';
-    status.textContent = 'AI advice delivered to Nokia';
+    return { ok: true, message: formatted };
   } catch (e) {
-    status.style.color = '#e74c3c';
-    status.textContent = 'Error: ' + e.message;
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'ANALYZE SENSORS';
-    setTimeout(() => { if (status.style.color === 'rgb(124, 252, 0)') status.textContent = ''; }, 4000);
+    return { ok: false, error: e.message };
   }
 }
