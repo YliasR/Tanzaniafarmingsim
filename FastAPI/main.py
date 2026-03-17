@@ -8,7 +8,10 @@ from database import engine
 # Note: In production, you'd use migrations like Alembic
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="SoilSMS Logging API")
+app = FastAPI(
+    title="SoilSMS Logging API",
+    docs_url="/docsMischienHandigMischienNIET"
+)
 
 @app.get("/")
 def read_root():
