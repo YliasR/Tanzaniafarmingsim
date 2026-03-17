@@ -1,8 +1,9 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
-import models, schemas, database
-from database import engine
+from . import models, schemas, database
+from .database import engine, SessionLocal
+from .integration import process_reading_and_notify
 
 # Create tables if they don't exist
 # Note: In production, you'd use migrations like Alembic
@@ -47,11 +48,16 @@ def read_nodes(skip: int = 0, limit: int = 100, db: Session = Depends(database.g
 
 # Sensor Readings
 @app.post("/readings/", response_model=schemas.SensorReading)
-def create_reading(reading: schemas.SensorReadingCreate, db: Session = Depends(database.get_db)):
+def create_reading(reading: schemas.SensorReadingCreate, background_tasks: BackgroundTasks, db: Session = Depends(database.get_db)):
     db_reading = models.SensorReading(**reading.dict())
     db.add(db_reading)
     db.commit()
     db.refresh(db_reading)
+    
+    # Trigger AI analysis and SMS notification in background
+    # We pass SessionLocal to create a new session in the background thread
+    background_tasks.add_task(process_reading_and_notify, SessionLocal, db_reading.id)
+    
     return db_reading
 
 @app.get("/readings/", response_model=List[schemas.SensorReading])
