@@ -163,6 +163,20 @@
     flex-shrink: 0;
   }
 
+  .pricing-fee {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #1a1a1a;
+    font-size: 14px;
+    color: #7cfc00;
+    font-weight: 600;
+  }
+  .pricing-fee span {
+    font-size: 11px;
+    color: #666;
+    font-weight: 400;
+  }
+
   /* Contact form */
   .contact-form {
     background: rgba(255,255,255,0.03);
@@ -336,40 +350,40 @@
   <h2>Pricing Plans</h2>
   <div class="pricing-grid">
     <div class="pricing-card">
-      <div class="pricing-tier">Starter</div>
-      <div class="pricing-price">$149 <span>/node</span></div>
-      <p class="pricing-desc">Perfect for small plots and pilot deployments.</p>
+      <div class="pricing-tier">Single Node</div>
+      <div class="pricing-price">$29 <span>one-time</span></div>
+      <p class="pricing-desc">One complete sensor node, ready to deploy.</p>
       <ul class="pricing-features">
-        <li>1 sensor node (RPi + sensors)</li>
-        <li>SIM card + 6 months SMS</li>
-        <li>Cloud AI analysis</li>
-        <li>Daily SMS advisories</li>
-        <li>Email support</li>
+        <li>1 sensor node (RPi + all sensors)</li>
+        <li>Pre-configured SIM card</li>
+        <li>Solar power kit included</li>
+        <li>Setup guide + email support</li>
       </ul>
+      <div class="pricing-fee">+ $3<span>/mo</span> server &amp; SMS</div>
     </div>
     <div class="pricing-card featured">
-      <div class="pricing-tier">Farm</div>
-      <div class="pricing-price">$399 <span>/3 nodes</span></div>
-      <p class="pricing-desc">Cover multiple plots with zone-based insights.</p>
+      <div class="pricing-tier">Farm Bundle</div>
+      <div class="pricing-price">$69 <span>for 3 nodes</span></div>
+      <p class="pricing-desc">Cover multiple plots at a discount.</p>
       <ul class="pricing-features">
-        <li>3 sensor nodes</li>
-        <li>SIM cards + 12 months SMS</li>
-        <li>Cloud or local AI</li>
+        <li>3 sensor nodes + solar kits</li>
         <li>Zone-based crop advisory</li>
+        <li>Cloud or local AI analysis</li>
         <li>Priority support</li>
       </ul>
+      <div class="pricing-fee">+ $7<span>/mo</span> server &amp; SMS</div>
     </div>
     <div class="pricing-card">
-      <div class="pricing-tier">Enterprise</div>
+      <div class="pricing-tier">Co-op / NGO</div>
       <div class="pricing-price">Custom</div>
-      <p class="pricing-desc">Large-scale deployments and cooperatives.</p>
+      <p class="pricing-desc">Bulk deployments for cooperatives and programmes.</p>
       <ul class="pricing-features">
-        <li>Unlimited nodes</li>
+        <li>10+ nodes, volume pricing</li>
         <li>Dedicated SMS gateway</li>
-        <li>On-premise AI server</li>
-        <li>API access + dashboard</li>
-        <li>On-site installation</li>
+        <li>On-premise AI server option</li>
+        <li>On-site installation + training</li>
       </ul>
+      <div class="pricing-fee">Contact us for rates</div>
     </div>
   </div>
 </section>
@@ -404,9 +418,9 @@
       <div class="form-group">
         <label for="plan">Interested In</label>
         <select id="plan">
-          <option value="starter">Starter — $149/node</option>
-          <option value="farm" selected>Farm — $399/3 nodes</option>
-          <option value="enterprise">Enterprise — Custom pricing</option>
+          <option value="single">Single Node — $29 + $3/mo</option>
+          <option value="farm" selected>Farm Bundle — $69 + $7/mo</option>
+          <option value="coop">Co-op / NGO — Custom</option>
           <option value="unsure">Not sure yet — advise me</option>
         </select>
       </div>

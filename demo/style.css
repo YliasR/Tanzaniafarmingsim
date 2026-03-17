@@ -38,6 +38,24 @@ canvas { display: block; }
   color: #aaa;
   max-width: 340px;
 }
+#home-btn {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 6px 14px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: #7cfc00;
+  text-decoration: none;
+  border: 1px solid #7cfc0066;
+  border-radius: 6px;
+  background: rgba(0,0,0,0.5);
+  pointer-events: auto;
+  transition: all 0.2s;
+}
+#home-btn:hover {
+  background: #7cfc00;
+  color: #0a0a0a;
+}
 
 /* Sensor panel */
 #sensor-panel {
