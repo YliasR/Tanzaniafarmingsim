@@ -422,11 +422,27 @@ window.isHardModeEnabled = isHardModeEnabled;
 function saveSettings() {
   const key = document.getElementById('apikey-input').value.trim();
   const hardModeEl = document.getElementById('hardmode-toggle');
+  const devModeEl  = document.getElementById('devmode-toggle');
   const hardMode = !!(hardModeEl && hardModeEl.checked);
+  const devMode  = !!(devModeEl && devModeEl.checked);
+  const wasDevMode = localStorage.getItem('farmsim_dev_mode') === '1';
   localStorage.setItem('farmsim_openrouter_key', key);
   localStorage.setItem('farmsim_hard_mode', hardMode ? '1' : '0');
+  localStorage.setItem('farmsim_dev_mode', devMode ? '1' : '0');
+  if (devMode && !wasDevMode) {
+    // Turning dev mode ON — stash real money, then grant max
+    localStorage.setItem('farmsim_pre_dev_money', String(playerMoney));
+    playerMoney = 9999999;
+    if (typeof updateMoneyHUD === 'function') updateMoneyHUD();
+  } else if (!devMode && wasDevMode) {
+    // Turning dev mode OFF — restore stashed money
+    const stashed = localStorage.getItem('farmsim_pre_dev_money');
+    playerMoney = stashed != null ? parseInt(stashed, 10) : 500;
+    localStorage.removeItem('farmsim_pre_dev_money');
+    if (typeof updateMoneyHUD === 'function') updateMoneyHUD();
+  }
   const msg = document.getElementById('settings-saved-msg');
-  msg.textContent = hardMode ? 'Saved. Hard Mode ON.' : (key ? 'Saved.' : 'Cleared.');
+  msg.textContent = devMode ? 'Saved. Dev Mode ON — 9,999,999 TSh!' : hardMode ? 'Saved. Hard Mode ON.' : (key ? 'Saved.' : 'Cleared.');
   setTimeout(() => { msg.textContent = ''; }, 2000);
 }
 
@@ -446,10 +462,21 @@ function toggleApiKeyVisibility() {
 (function loadSettings() {
   const key = localStorage.getItem('farmsim_openrouter_key') || '';
   const hardMode = localStorage.getItem('farmsim_hard_mode') === '1';
+  const devMode  = localStorage.getItem('farmsim_dev_mode') === '1';
   const el  = document.getElementById('apikey-input');
   const hardModeEl = document.getElementById('hardmode-toggle');
+  const devModeEl  = document.getElementById('devmode-toggle');
   if (el) el.value = key;
   if (hardModeEl) hardModeEl.checked = hardMode;
+  if (devModeEl)  devModeEl.checked = devMode;
+  if (devMode) {
+    // On load with dev mode active, stash current money if not already stashed, then grant max
+    if (localStorage.getItem('farmsim_pre_dev_money') == null) {
+      localStorage.setItem('farmsim_pre_dev_money', String(playerMoney));
+    }
+    playerMoney = 9999999;
+    if (typeof updateMoneyHUD === 'function') updateMoneyHUD();
+  }
 })();
 
 // Init
