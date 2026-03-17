@@ -1,32 +1,37 @@
 // ============================================================
-// Save / Load — persistent game data via localStorage
-// Covers: farm state, money (Phase 6 placeholder), timestamps
+// Save / Load — Phase 6 expanded
 // ============================================================
 
-const SAVE_KEY     = 'farmsim_save_v1';
-const SAVE_VERSION = 1;
+const SAVE_KEY     = 'farmsim_save_v2';
+const SAVE_VERSION = 2;
 
-// ---- Global economy state (used by Phase 6) ----
-let playerMoney = 0;
+// ---- Global economy state ----
+let playerMoney = 500;   // starting balance (TSh)
 
 // ============================================================
 // Save
 // ============================================================
 function saveGame() {
-  // Only save cells that have a crop
   const cells = [];
   farmCells.forEach((c, idx) => {
     if (c.stage >= 0) {
-      cells.push({ idx, seedType: c.seedType, stage: c.stage, nextStageAt: c.nextStageAt });
+      cells.push({
+        idx, seedType: c.seedType, stage: c.stage,
+        nextStageAt: c.nextStageAt, watered: c.watered,
+      });
     }
   });
 
   const data = {
-    version:      SAVE_VERSION,
-    savedAt:      Date.now(),
+    version:       SAVE_VERSION,
+    savedAt:       Date.now(),
     farmRealTime,
-    money:        playerMoney,
-    inventory:    { ...inventory },
+    money:         playerMoney,
+    huntLoot:      { ...inventory },
+    seedInventory: [...seedInventory],
+    cropInventory: [...cropInventory],
+    ownedTools:    { ...ownedTools },
+    fertilizer:    fertilizerCount,
     cells,
   };
 
@@ -49,17 +54,36 @@ function loadGame() {
   try { data = JSON.parse(raw); } catch (e) { return; }
   if (!data || data.version !== SAVE_VERSION) return;
 
-  // Restore timing + economy
+  // Timing + money
   farmRealTime = data.farmRealTime || 0;
-  playerMoney  = data.money        || 0;
+  playerMoney  = data.money ?? 500;
 
-  // Restore hunting inventory
-  if (data.inventory) {
-    inventory.meat     = data.inventory.meat     || 0;
-    inventory.hide     = data.inventory.hide     || 0;
-    inventory.feathers = data.inventory.feathers || 0;
+  // Hunting inventory
+  if (data.huntLoot) {
+    inventory.meat     = data.huntLoot.meat     || 0;
+    inventory.hide     = data.huntLoot.hide     || 0;
+    inventory.feathers = data.huntLoot.feathers || 0;
     updateInventoryHUD();
   }
+
+  // Seed & crop inventories
+  if (data.seedInventory) {
+    for (let i = 0; i < seedInventory.length; i++) {
+      seedInventory[i] = data.seedInventory[i] ?? 0;
+    }
+  }
+  if (data.cropInventory) {
+    for (let i = 0; i < cropInventory.length; i++) {
+      cropInventory[i] = data.cropInventory[i] ?? 0;
+    }
+  }
+
+  // Tools
+  if (data.ownedTools) {
+    ownedTools.hoe         = data.ownedTools.hoe ?? true;
+    ownedTools.wateringCan = data.ownedTools.wateringCan ?? false;
+  }
+  fertilizerCount = data.fertilizer ?? 0;
 
   // Restore planted cells
   for (const saved of (data.cells || [])) {
@@ -69,12 +93,16 @@ function loadGame() {
     cell.seedType    = saved.seedType;
     cell.stage       = saved.stage;
     cell.nextStageAt = saved.nextStageAt;
+    cell.watered     = saved.watered ?? false;
 
     if (cell.mesh) scene.remove(cell.mesh);
     cell.mesh = buildCropMesh(cell.seedType, cell.stage);
     cell.mesh.position.set(cell.cx, FARM_Y, cell.cz);
     scene.add(cell.mesh);
   }
+
+  updateSeedHUD();
+  if (typeof updateMoneyHUD === 'function') updateMoneyHUD();
 }
 
 // ============================================================

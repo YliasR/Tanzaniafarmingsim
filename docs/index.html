@@ -45,8 +45,14 @@
         </p>
       </div>
 
+      <div class="setting-group">
+        <label class="setting-label">Game Data</label>
+        <p class="setting-hint">Delete your save and start a new game from scratch.</p>
+      </div>
+
       <div class="menu-buttons">
-        <button class="menu-btn primary" onclick="saveSettings()">SAVE</button>
+        <button class="menu-btn primary" onclick="saveSettings()">SAVE SETTINGS</button>
+        <button class="menu-btn danger" onclick="resetGame()">RESET GAME</button>
         <button class="menu-btn" onclick="showPage('title')">&#8592; BACK</button>
       </div>
       <p id="settings-saved-msg" class="saved-msg"></p>
@@ -66,9 +72,11 @@
         <kbd>Space</kbd><span>Jump</span>
         <kbd>N</kbd><span>Toggle Nokia phone</span>
         <kbd>1–5</kbd><span>Select seed type</span>
-        <kbd>F</kbd><span>Plant / Harvest crop</span>
+        <kbd>F</kbd><span>Plant / Water / Harvest crop</span>
+        <kbd>T</kbd><span>Apply fertilizer to growing crop</span>
         <kbd>G</kbd><span>Toggle hunt mode (left-click to shoot)</span>
-        <kbd>E</kbd><span>Sleep until morning (stand at house door, night only)</span>
+        <kbd>E</kbd><span>Interact (shop / market / sleep)</span>
+        <kbd>I</kbd><span>Toggle inventory</span>
         <kbd>Esc</kbd><span>Release mouse cursor</span>
       </div>
 
@@ -87,14 +95,43 @@
 
 </div><!-- /menu-overlay -->
 
+<!-- ===== SHOP OVERLAY ===== -->
+<div id="shop-overlay" class="trade-overlay hidden">
+  <div class="trade-card">
+    <h2 class="trade-title">DUKA — SHOP</h2>
+    <div class="trade-money">Balance: TSh <span id="shop-money">500</span></div>
+    <h3 class="section-heading">SEEDS  (x5 per purchase)</h3>
+    <div id="shop-seeds"></div>
+    <h3 class="section-heading">TOOLS</h3>
+    <div id="shop-tools"></div>
+    <h3 class="section-heading">SUPPLIES</h3>
+    <div id="shop-supplies"></div>
+    <button class="menu-btn" onclick="closeShop()">[E] CLOSE</button>
+  </div>
+</div>
+
+<!-- ===== MARKET OVERLAY ===== -->
+<div id="market-overlay" class="trade-overlay hidden">
+  <div class="trade-card">
+    <h2 class="trade-title">SOKO — MARKET</h2>
+    <div class="trade-money">Balance: TSh <span id="market-money">500</span></div>
+    <h3 class="section-heading">SELL CROPS</h3>
+    <div id="market-crops"></div>
+    <h3 class="section-heading">SELL HUNTING LOOT</h3>
+    <div id="market-loot"></div>
+    <button class="menu-btn" onclick="closeMarket()">[E] CLOSE</button>
+  </div>
+</div>
+
 <!-- ===== GAME CANVAS ===== -->
 <div id="canvas-container">
   <div id="crosshair"></div>
 
   <div id="hud">
     <h1>FARM SIM</h1>
-    <p id="nokia-hint-hud">[ N ] Nokia</p>
+    <div id="money-hud">TSh <span id="money-amount">500</span></div>
     <div id="game-clock">06:00</div>
+    <p id="nokia-hint-hud">[ N ] Nokia  [ I ] Inventory</p>
   </div>
 
   <div id="save-indicator">SAVED</div>
@@ -102,11 +139,17 @@
   <!-- 2D Nokia phone widget -->
   <!-- Seed toolbar -->
   <div id="seed-toolbar">
-    <div class="seed-slot active"><span class="seed-key">1</span><span class="seed-name">MAIZE</span></div>
-    <div class="seed-slot"><span class="seed-key">2</span><span class="seed-name">BEANS</span></div>
-    <div class="seed-slot"><span class="seed-key">3</span><span class="seed-name">SORGHUM</span></div>
-    <div class="seed-slot"><span class="seed-key">4</span><span class="seed-name">CASSAVA</span></div>
-    <div class="seed-slot"><span class="seed-key">5</span><span class="seed-name">G.NUTS</span></div>
+    <div class="seed-slot active"><span class="seed-key">1</span><span class="seed-name">MAIZE</span><span class="seed-count">x5</span></div>
+    <div class="seed-slot"><span class="seed-key">2</span><span class="seed-name">BEANS</span><span class="seed-count">x3</span></div>
+    <div class="seed-slot"><span class="seed-key">3</span><span class="seed-name">SORGHUM</span><span class="seed-count">x3</span></div>
+    <div class="seed-slot"><span class="seed-key">4</span><span class="seed-name">CASSAVA</span><span class="seed-count">x2</span></div>
+    <div class="seed-slot"><span class="seed-key">5</span><span class="seed-name">G.NUTS</span><span class="seed-count">x2</span></div>
+  </div>
+
+  <!-- Inventory panel (I key toggle) -->
+  <div id="inv-panel" style="display:none">
+    <h3 class="inv-header">INVENTORY  [I]</h3>
+    <div id="inv-panel-body"></div>
   </div>
 
   <!-- Hunt mode indicator -->
@@ -149,6 +192,7 @@
 <script src="controls.js"></script>
 <script src="farming.js"></script>
 <script src="hunting.js"></script>
+<script src="shop.js"></script>
 <script src="save.js"></script>
 <script src="sms.js"></script>
 <script src="app.js"></script>

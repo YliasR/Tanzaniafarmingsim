@@ -518,9 +518,122 @@ const houseDoorPos = new THREE.Vector3(_hX + 2.5, groundAt(_hX, _hZ) + 1.0, _hZ)
     farmLamp.position.set(_lx, groundAt(_lx, _lz) + 2.9, _lz);
     scene.add(farmLamp);
 
-    
+// --- Village Shop (Duka) ---
+const shopGroup = new THREE.Group();
+const _shopX = 10, _shopZ = -6;
+shopGroup.position.set(_shopX, groundAt(_shopX, _shopZ), _shopZ);
 
+const shopWalls = new THREE.Mesh(
+  new THREE.BoxGeometry(4, 2.5, 3.5),
+  new THREE.MeshLambertMaterial({ color: 0xddcc88 })
+);
+shopWalls.position.y = 1.25;
+shopWalls.castShadow = true;
+shopGroup.add(shopWalls);
 
+const shopRoof = new THREE.Mesh(
+  new THREE.BoxGeometry(4.4, 0.1, 3.9),
+  new THREE.MeshLambertMaterial({ color: 0x888888 })
+);
+shopRoof.position.y = 2.55;
+shopGroup.add(shopRoof);
+
+// Service counter on +Z face
+const shopCounter = new THREE.Mesh(
+  new THREE.BoxGeometry(2.4, 0.12, 0.3),
+  new THREE.MeshLambertMaterial({ color: 0x5a3010 })
+);
+shopCounter.position.set(0, 1.1, 1.9);
+shopGroup.add(shopCounter);
+
+// Awning over counter
+const shopAwning = new THREE.Mesh(
+  new THREE.BoxGeometry(3.0, 0.06, 1.4),
+  new THREE.MeshLambertMaterial({ color: 0xaa3322 })
+);
+shopAwning.position.set(0, 2.3, 2.3);
+shopAwning.rotation.x = 0.15;
+shopGroup.add(shopAwning);
+
+// DUKA sign (canvas texture)
+const dukaCanvas = document.createElement('canvas');
+dukaCanvas.width = 200; dukaCanvas.height = 60;
+const dukaCtx = dukaCanvas.getContext('2d');
+dukaCtx.fillStyle = '#2a6a20';
+dukaCtx.fillRect(0, 0, 200, 60);
+dukaCtx.fillStyle = '#fff';
+dukaCtx.font = 'bold 36px monospace';
+dukaCtx.textAlign = 'center';
+dukaCtx.fillText('DUKA', 100, 42);
+const dukaSign = new THREE.Mesh(
+  new THREE.PlaneGeometry(2, 0.6),
+  new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(dukaCanvas) })
+);
+dukaSign.position.set(0, 2.85, 1.76);
+shopGroup.add(dukaSign);
+
+scene.add(shopGroup);
+const shopPos = new THREE.Vector3(_shopX, groundAt(_shopX, _shopZ) + 1.0, _shopZ + 1.9);
+
+// --- Market Stall (Soko) — open-air stall down the road ---
+const marketGroup = new THREE.Group();
+const _mktX = 55, _mktZ = -10;
+marketGroup.position.set(_mktX, groundAt(_mktX, _mktZ), _mktZ);
+
+// Open wooden stall: 4 posts + corrugated-iron roof
+const stallRoof = new THREE.Mesh(
+  new THREE.BoxGeometry(5, 0.1, 3.5),
+  new THREE.MeshLambertMaterial({ color: 0x8a7a5a })
+);
+stallRoof.position.y = 2.5;
+marketGroup.add(stallRoof);
+
+for (const [px, pz] of [[-2.2, -1.5], [-2.2, 1.5], [2.2, -1.5], [2.2, 1.5]]) {
+  const post = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.08, 0.1, 2.5, 6),
+    new THREE.MeshLambertMaterial({ color: 0x6b4a1a })
+  );
+  post.position.set(px, 1.25, pz);
+  marketGroup.add(post);
+}
+
+// Sales table
+const mktTable = new THREE.Mesh(
+  new THREE.BoxGeometry(4.5, 0.12, 1.5),
+  new THREE.MeshLambertMaterial({ color: 0x5a3a10 })
+);
+mktTable.position.set(0, 1.0, 0);
+marketGroup.add(mktTable);
+
+// Decorative produce crates on table
+for (const [cx, cz, col] of [[-1.4, 0, 0xddaa22], [0, 0, 0x44aa33], [1.4, 0, 0xcc4422]]) {
+  const crate = new THREE.Mesh(
+    new THREE.BoxGeometry(0.7, 0.35, 0.5),
+    new THREE.MeshLambertMaterial({ color: col })
+  );
+  crate.position.set(cx, 1.24, cz);
+  marketGroup.add(crate);
+}
+
+// SOKO sign
+const sokoCanvas = document.createElement('canvas');
+sokoCanvas.width = 200; sokoCanvas.height = 60;
+const sokoCtx = sokoCanvas.getContext('2d');
+sokoCtx.fillStyle = '#aa5520';
+sokoCtx.fillRect(0, 0, 200, 60);
+sokoCtx.fillStyle = '#fff';
+sokoCtx.font = 'bold 36px monospace';
+sokoCtx.textAlign = 'center';
+sokoCtx.fillText('SOKO', 100, 42);
+const sokoSign = new THREE.Mesh(
+  new THREE.PlaneGeometry(2, 0.6),
+  new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(sokoCanvas) })
+);
+sokoSign.position.set(0, 2.8, 0);
+marketGroup.add(sokoSign);
+
+scene.add(marketGroup);
+const marketPos = new THREE.Vector3(_mktX, groundAt(_mktX, _mktZ) + 1.0, _mktZ);
 
 
 // --- Acacia trees (flat-topped, iconic Tanzania) ---
@@ -1192,8 +1305,10 @@ function getPointOnPath(path, t) {
 // Used by controls.js updatePlayer()
 // ============================================================
 const worldColliders = [
-  { x1: -21, x2: -15, z1: 10, z2: 14, name: 'house'  },  // houseGroup @ (-18, 12), 5×4 m
-  { x1:  16, x2:  24, z1: -19, z2: -11, name: 'tower' },  // towerGroup @ (20, -15)
+  { x1: -21, x2: -15, z1: 10, z2: 14, name: 'house'   },  // (-18, 12), 5×4 m
+  { x1:  16, x2:  24, z1: -19, z2: -11, name: 'tower'  },  // (20, -15)
+  { x1:   8, x2:  12, z1: -8, z2: -4,   name: 'shop'   },  // (10, -6), 4×3.5 m
+  { x1:  52, x2:  58, z1: -12, z2: -8,  name: 'market'  },  // (55, -10), 5×3.5 m
 ];
 
 // Sky dome background is handled above — day/night tints it in app.js

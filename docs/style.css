@@ -48,12 +48,19 @@ canvas { display: block; }
   font-size: 8px;
   color: #555;
 }
+#money-hud {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  color: #ffd700;
+  text-shadow: 0 0 8px #ffd70044;
+  margin-top: 6px;
+}
 #game-clock {
   font-family: 'Press Start 2P', monospace;
   font-size: 13px;
   color: #7cfc00;
   text-shadow: 0 0 8px #7cfc0044;
-  margin-top: 10px;
+  margin-top: 4px;
   letter-spacing: 2px;
 }
 
@@ -426,8 +433,16 @@ kbd {
   background: rgba(124, 252, 0, 0.10);
   box-shadow: 0 0 8px rgba(124, 252, 0, 0.18);
 }
-.seed-slot.active .seed-key  { color: #7cfc0099; }
-.seed-slot.active .seed-name { color: #7cfc00; }
+.seed-count {
+  display: block;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  color: #ffd700;
+  margin-top: 2px;
+}
+.seed-slot.active .seed-key   { color: #7cfc0099; }
+.seed-slot.active .seed-name  { color: #7cfc00; }
+.seed-slot.active .seed-count { color: #ffd700; }
 
 /* ============================================================
    Hunt mode indicator + inventory HUD
@@ -489,4 +504,149 @@ kbd {
   z-index: 10;
   pointer-events: none;
   white-space: nowrap;
+}
+
+/* ============================================================
+   Trade overlays (shop + market)
+   ============================================================ */
+.trade-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(4px);
+}
+.trade-overlay.hidden {
+  display: none;
+}
+.trade-card {
+  background: rgba(10, 10, 20, 0.94);
+  border: 1px solid #7cfc0030;
+  border-radius: 16px;
+  padding: 36px 44px;
+  width: 480px;
+  max-height: 88vh;
+  overflow-y: auto;
+  box-shadow: 0 0 60px rgba(124,252,0,0.04), 0 24px 64px rgba(0,0,0,0.6);
+}
+.trade-card::-webkit-scrollbar { width: 4px; }
+.trade-card::-webkit-scrollbar-thumb { background: #7cfc0033; border-radius: 2px; }
+.trade-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  color: #7cfc00;
+  margin-bottom: 8px;
+  text-shadow: 0 0 10px #7cfc0030;
+}
+.trade-money {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  color: #ffd700;
+  margin-bottom: 20px;
+}
+.trade-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #ffffff08;
+}
+.trade-item {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: #ccc;
+}
+.trade-price {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: #ffd700;
+  white-space: nowrap;
+}
+.trade-own {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: #888;
+  white-space: nowrap;
+  min-width: 50px;
+  text-align: right;
+}
+.trade-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: #7cfc00;
+  background: transparent;
+  border: 1px solid #7cfc0040;
+  border-radius: 4px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.trade-btn:hover:not(:disabled) {
+  background: rgba(124,252,0,0.12);
+  border-color: #7cfc00aa;
+}
+.trade-btn:disabled {
+  color: #444;
+  border-color: #333;
+  cursor: default;
+}
+
+/* ============================================================
+   Inventory panel
+   ============================================================ */
+#inv-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(10, 10, 20, 0.92);
+  border: 1px solid #7cfc0030;
+  border-radius: 12px;
+  padding: 24px 32px;
+  width: 340px;
+  max-height: 70vh;
+  overflow-y: auto;
+  z-index: 50;
+  pointer-events: auto;
+}
+.inv-header {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  color: #7cfc00;
+  margin-bottom: 16px;
+}
+.inv-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+.inv-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: #ffd700;
+  margin-bottom: 4px;
+}
+.inv-section span {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: #aaa;
+}
+
+/* ============================================================
+   Reset / Danger button
+   ============================================================ */
+.menu-btn.danger {
+  color: #ff4444;
+  border-color: #ff444440;
+}
+.menu-btn.danger:hover {
+  background: rgba(255,68,68,0.12);
+  border-color: #ff4444aa;
+  color: #ff6666;
 }

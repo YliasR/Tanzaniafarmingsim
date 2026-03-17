@@ -15,10 +15,14 @@ const SEED_TYPES = [
   { name: 'GROUNDNUTS', stalkColor: 0x8a7028, leafColor: 0xaaaa38, matureH: 0.5 },
 ];
 
+// ---- Economy (Phase 6) ----
+const seedInventory = [5, 3, 3, 2, 2];   // starting seeds per type
+const cropInventory = [0, 0, 0, 0, 0];   // harvested crops (sell at market)
+const ownedTools    = { hoe: true, wateringCan: false };
+let fertilizerCount = 0;
+
 let selectedSeed = 0;
 let farmRealTime  = 0;
-
-// Farm Y = FLAT_FARM_Y (terrain under the farm was flattened to this level in scene.js)
 
 // ---- Farm cells ----
 const farmCells = [];
@@ -28,6 +32,7 @@ for (let row = 0; row < FARM_ROWS; row++) {
       seedType:    -1,
       stage:       -1,
       nextStageAt:  0,
+      watered:      false,
       mesh:         null,
       cx: FARM_ORIGIN_X + col * CELL_SIZE + CELL_SIZE * 0.5,
       cz: FARM_ORIGIN_Z + row * CELL_SIZE + CELL_SIZE * 0.5,
@@ -196,7 +201,8 @@ function plantCell(idx) {
   if (cell.stage !== -1) return;
   cell.seedType    = selectedSeed;
   cell.stage       = 0;
-  cell.nextStageAt = farmRealTime + STAGE_TIMES[0];
+  cell.watered     = false;
+  cell.nextStageAt = farmRealTime + STAGE_TIMES[0] * 3; // slow until watered
   if (cell.mesh) scene.remove(cell.mesh);
   cell.mesh = buildCropMesh(selectedSeed, 0);
   cell.mesh.position.set(cell.cx, FARM_Y, cell.cz);
@@ -209,6 +215,7 @@ function harvestCell(idx) {
   if (cell.mesh) { scene.remove(cell.mesh); cell.mesh = null; }
   cell.stage    = -1;
   cell.seedType = -1;
+  cell.watered  = false;
 }
 
 // ============================================================
@@ -238,11 +245,12 @@ function updateFarming(dt) {
     if (cell.stage < 0 || cell.stage >= 3) continue;
     if (farmRealTime >= cell.nextStageAt) {
       cell.stage++;
+      cell.watered = false;
       if (cell.mesh) scene.remove(cell.mesh);
       cell.mesh = buildCropMesh(cell.seedType, cell.stage);
       cell.mesh.position.set(cell.cx, FARM_Y, cell.cz);
       scene.add(cell.mesh);
-      if (cell.stage < 3) cell.nextStageAt = farmRealTime + STAGE_TIMES[cell.stage];
+      if (cell.stage < 3) cell.nextStageAt = farmRealTime + STAGE_TIMES[cell.stage] * 3;
     }
   }
 
@@ -266,14 +274,24 @@ function updateFarming(dt) {
 
       if (cell.stage === -1) {
         _hlMat.color.setHex(0x88ff88);
-        if (tooltipEl) { tooltipEl.textContent = `[ F ]  Plant  ${SEED_TYPES[selectedSeed].name}`; tooltipEl.style.display = 'block'; }
+        const hasSeed = seedInventory[selectedSeed] > 0;
+        const tip = hasSeed
+          ? `[F] Plant ${SEED_TYPES[selectedSeed].name}  (${seedInventory[selectedSeed]} left)`
+          : `No ${SEED_TYPES[selectedSeed].name} seeds!`;
+        if (tooltipEl) { tooltipEl.textContent = tip; tooltipEl.style.display = 'block'; }
       } else if (cell.stage === 3) {
         _hlMat.color.setHex(0xffff44);
-        if (tooltipEl) { tooltipEl.textContent = `[ F ]  Harvest  ${SEED_TYPES[cell.seedType].name}`; tooltipEl.style.display = 'block'; }
+        if (tooltipEl) { tooltipEl.textContent = `[F] Harvest ${SEED_TYPES[cell.seedType].name}`; tooltipEl.style.display = 'block'; }
+      } else if (!cell.watered) {
+        _hlMat.color.setHex(0xff8844);
+        const tip = ownedTools.wateringCan
+          ? `[F] Water ${SEED_TYPES[cell.seedType].name}`
+          : 'Needs water — buy Ndoo at the Duka';
+        if (tooltipEl) { tooltipEl.textContent = tip; tooltipEl.style.display = 'block'; }
       } else {
         _hlMat.color.setHex(0x88aaff);
         const stageNames = ['Planted', 'Sprouting', 'Growing'];
-        if (tooltipEl) { tooltipEl.textContent = stageNames[cell.stage]; tooltipEl.style.display = 'block'; }
+        if (tooltipEl) { tooltipEl.textContent = `${stageNames[cell.stage]} (watered)`; tooltipEl.style.display = 'block'; }
       }
       return;
     }
@@ -297,8 +315,38 @@ window.addEventListener('keydown', e => {
 
   if (e.code === 'KeyF' && hoveredCell >= 0) {
     const cell = farmCells[hoveredCell];
-    if (cell.stage === -1)   plantCell(hoveredCell);
-    else if (cell.stage === 3) harvestCell(hoveredCell);
+    if (cell.stage === -1) {
+      // Plant — need hoe + seeds
+      if (!ownedTools.hoe) return;
+      if (seedInventory[selectedSeed] <= 0) return;
+      seedInventory[selectedSeed]--;
+      plantCell(hoveredCell);
+      updateSeedHUD();
+    } else if (cell.stage >= 0 && cell.stage < 3 && !cell.watered && ownedTools.wateringCan) {
+      // Water — reduces remaining grow time to 1/3
+      cell.watered = true;
+      const remaining = cell.nextStageAt - farmRealTime;
+      if (remaining > 0) cell.nextStageAt = farmRealTime + remaining / 3;
+    } else if (cell.stage === 3) {
+      // Harvest
+      cropInventory[cell.seedType]++;
+      harvestCell(hoveredCell);
+      if (typeof updateMoneyHUD === 'function') updateMoneyHUD();
+    }
+  }
+
+  if (e.code === 'KeyT' && hoveredCell >= 0) {
+    const cell = farmCells[hoveredCell];
+    if (cell.stage >= 0 && cell.stage < 3 && fertilizerCount > 0) {
+      fertilizerCount--;
+      cell.stage++;
+      cell.watered = false;
+      if (cell.mesh) scene.remove(cell.mesh);
+      cell.mesh = buildCropMesh(cell.seedType, cell.stage);
+      cell.mesh.position.set(cell.cx, FARM_Y, cell.cz);
+      scene.add(cell.mesh);
+      if (cell.stage < 3) cell.nextStageAt = farmRealTime + STAGE_TIMES[cell.stage] * 3;
+    }
   }
 });
 
@@ -308,6 +356,8 @@ window.addEventListener('keydown', e => {
 function updateSeedHUD() {
   document.querySelectorAll('.seed-slot').forEach((el, i) => {
     el.classList.toggle('active', i === selectedSeed);
+    const countEl = el.querySelector('.seed-count');
+    if (countEl) countEl.textContent = 'x' + seedInventory[i];
   });
 }
 updateSeedHUD();

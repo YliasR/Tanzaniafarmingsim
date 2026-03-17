@@ -106,30 +106,59 @@ function updateClock() {
 }
 
 // ============================================================
-// Sleep until morning (house door interaction)
+// Interaction tooltips (shop / market / house sleep)
 // ============================================================
-function updateSleep() {
-  if (typeof houseDoorPos === 'undefined') return;
-  const distToDoor = player.pos.distanceTo(houseDoorPos);
-  const isNight    = dayTime > 0.72 || dayTime < 0.24;
-  const nearDoor   = distToDoor < 4.0;
-
+function updateInteractionTips() {
+  if (typeof shopOpen !== 'undefined' && (shopOpen || marketOpen)) return;
   const tipEl = document.getElementById('farm-tooltip');
-  if (nearDoor && isNight && tipEl) {
-    tipEl.textContent   = '[E]  Sleep until morning';
-    tipEl.style.display = 'block';
+
+  // Shop proximity
+  if (typeof shopPos !== 'undefined' && player.pos.distanceTo(shopPos) < 4.5) {
+    if (tipEl) { tipEl.textContent = '[E] Open Shop'; tipEl.style.display = 'block'; }
+    return;
+  }
+  // Market proximity
+  if (typeof marketPos !== 'undefined' && player.pos.distanceTo(marketPos) < 4.5) {
+    if (tipEl) { tipEl.textContent = '[E] Open Market'; tipEl.style.display = 'block'; }
+    return;
+  }
+  // House door (sleep at night)
+  if (typeof houseDoorPos !== 'undefined') {
+    const isNight  = dayTime > 0.72 || dayTime < 0.24;
+    if (player.pos.distanceTo(houseDoorPos) < 4.0 && isNight) {
+      if (tipEl) { tipEl.textContent = '[E] Sleep until morning'; tipEl.style.display = 'block'; }
+      return;
+    }
   }
 }
 
 window.addEventListener('keydown', e => {
   if (!document.getElementById('menu-overlay').classList.contains('hidden')) return;
-  if (e.code !== 'KeyE') return;
-  if (typeof houseDoorPos === 'undefined') return;
-  if (player.pos.distanceTo(houseDoorPos) > 4.0) return;
 
-  dayTime = 0.27; // jump to ~06:30 (just after sunrise)
-  const tipEl = document.getElementById('farm-tooltip');
-  if (tipEl) tipEl.style.display = 'none';
+  if (e.code === 'KeyE') {
+    // Close open panels first
+    if (typeof shopOpen !== 'undefined' && shopOpen)   { closeShop();   return; }
+    if (typeof marketOpen !== 'undefined' && marketOpen) { closeMarket(); return; }
+
+    // Open shop
+    if (typeof shopPos !== 'undefined' && player.pos.distanceTo(shopPos) < 4.5) {
+      openShop(); return;
+    }
+    // Open market
+    if (typeof marketPos !== 'undefined' && player.pos.distanceTo(marketPos) < 4.5) {
+      openMarket(); return;
+    }
+    // Sleep at house door
+    if (typeof houseDoorPos !== 'undefined' && player.pos.distanceTo(houseDoorPos) < 4.0) {
+      dayTime = 0.27;
+      const tipEl = document.getElementById('farm-tooltip');
+      if (tipEl) tipEl.style.display = 'none';
+    }
+  }
+
+  if (e.code === 'KeyI') {
+    if (typeof toggleInventoryPanel === 'function') toggleInventoryPanel();
+  }
 });
 
 // ============================================================
@@ -217,8 +246,8 @@ function animate() {
     rifleModel.quaternion.copy(camQuat);
   }
 
-  // ---- Sleep / skip-to-morning ----
-  updateSleep();
+  // ---- Interaction tooltips (shop/market/sleep) ----
+  updateInteractionTips();
 
   // ---- Clock ----
   updateClock();
@@ -334,4 +363,5 @@ function toggleApiKeyVisibility() {
 
 // Init
 updateSensors();
+if (typeof updateMoneyHUD === 'function') updateMoneyHUD();
 animate();
