@@ -1,0 +1,49 @@
+appId: com.mysticfox.tanzaniafarmsim
+productName: Tanzania Farm Sim
+copyright: Copyright © 2026 MysticFox
+
+directories:
+  output: release
+
+files:
+  - main.js
+  - docs/**/*
+  - build/icon.png
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.png
+  signAndEditExecutable: false
+
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Tanzania Farm Sim
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  icon: build/icon.png
+  category: Game
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  icon: build/icon.png
+  category: public.app-category.games

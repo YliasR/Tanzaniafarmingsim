@@ -106,16 +106,16 @@
 
 ## Phase 8: Electron Packaging
 
-- [ ] `npm init` + install `electron`
-- [ ] Create `main.js` (Electron entry point, loads `index.html`)
-- [ ] Window config: fullscreen by default, resizable, title "SoilSMS Farm"
-- [ ] Test on Windows + Linux
-- [ ] Use `electron-builder` to create installers:
+- [x] `npm init` + install `electron` (package.json created)
+- [x] Create `main.js` (Electron entry point, loads `index.html`)
+- [x] Window config: fullscreen by default, resizable, title "Tanzania Farm Sim"
+- [ ] Test on Windows + Linux (run `npm start`)
+- [x] Use `electron-builder` to create installers:
   - `.exe` for Windows
   - `.AppImage` / `.deb` for Linux
   - `.dmg` for macOS (if possible)
-- [ ] Add app icon (pixel art farm icon)
-- [ ] Optimize: disable devtools in production, set CSP headers
+- [x] Add app icon (pixel art farm icon — generator at `scripts/generate-icon.html`)
+- [x] Optimize: disable devtools in production, set CSP headers
 
 ---
 

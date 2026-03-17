@@ -24,3 +24,16 @@ TestResults.xml
 
 .env
 *.env
+
+# Electron / Node
+node_modules/
+dist/
+release/
+dist-temp/
+dist-temp2/
+*.exe
+*.AppImage
+*.deb
+*.dmg
+*.snap
+package-lock.json

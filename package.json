@@ -1,0 +1,19 @@
+{
+  "name": "tanzania-farm-sim",
+  "version": "1.0.0",
+  "description": "Low-poly open-world farming sim set in rural Tanzania",
+  "main": "main.js",
+  "author": "MysticFox",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win",
+    "build:linux": "electron-builder --linux",
+    "build:mac": "electron-builder --mac",
+    "build:all": "electron-builder --win --linux"
+  },
+  "devDependencies": {
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8"
+  }
+}

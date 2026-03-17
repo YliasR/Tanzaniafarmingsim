@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head><title>Icon Generator</title></head>
+<body>
+<h2>Tanzania Farm Sim — Icon Generator</h2>
+<p>Right-click the image below and "Save image as" → save to <code>build/icon.png</code></p>
+<canvas id="c" width="512" height="512"></canvas>
+<script>
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+
+// Sky gradient
+const sky = ctx.createLinearGradient(0, 0, 0, 256);
+sky.addColorStop(0, '#4a90d9');
+sky.addColorStop(1, '#87ceeb');
+ctx.fillStyle = sky;
+ctx.fillRect(0, 0, 512, 256);
+
+// Sun
+ctx.fillStyle = '#ffe066';
+ctx.beginPath();
+ctx.arc(400, 80, 45, 0, Math.PI * 2);
+ctx.fill();
+
+// Mountain (Kilimanjaro silhouette)
+ctx.fillStyle = '#6b8e6b';
+ctx.beginPath();
+ctx.moveTo(50, 256);
+ctx.lineTo(200, 100);
+ctx.lineTo(310, 120);
+ctx.lineTo(460, 256);
+ctx.fill();
+
+// Snow cap
+ctx.fillStyle = '#ffffff';
+ctx.beginPath();
+ctx.moveTo(170, 130);
+ctx.lineTo(200, 100);
+ctx.lineTo(230, 112);
+ctx.lineTo(210, 135);
+ctx.fill();
+
+// Ground
+const ground = ctx.createLinearGradient(0, 256, 0, 512);
+ground.addColorStop(0, '#5a8a3a');
+ground.addColorStop(1, '#3d6b24');
+ctx.fillStyle = ground;
+ctx.fillRect(0, 256, 512, 256);
+
+// Farm plot (brown tilled rows)
+ctx.fillStyle = '#6b4226';
+ctx.fillRect(60, 300, 180, 140);
+for (let i = 0; i < 6; i++) {
+  ctx.fillStyle = '#5a3518';
+  ctx.fillRect(60, 305 + i * 23, 180, 8);
+}
+
+// Crop sprouts
+ctx.fillStyle = '#2d8a2d';
+for (let row = 0; row < 6; row++) {
+  for (let col = 0; col < 5; col++) {
+    const x = 80 + col * 35;
+    const y = 300 + row * 23;
+    ctx.fillRect(x, y, 4, 12);
+    ctx.fillRect(x - 3, y + 3, 10, 3);
+  }
+}
+
+// Hut
+ctx.fillStyle = '#c4956a';
+ctx.fillRect(320, 310, 80, 60);
+ctx.fillStyle = '#8b5e3c';
+ctx.beginPath();
+ctx.moveTo(310, 310);
+ctx.lineTo(360, 270);
+ctx.lineTo(410, 310);
+ctx.fill();
+// Door
+ctx.fillStyle = '#5a3518';
+ctx.fillRect(348, 340, 24, 30);
+
+// Chicken (pixel style)
+ctx.fillStyle = '#ffffff';
+ctx.fillRect(280, 400, 16, 12);
+ctx.fillRect(290, 392, 10, 8);
+ctx.fillStyle = '#ff4444';
+ctx.fillRect(296, 390, 6, 4);
+
+// Text
+ctx.fillStyle = '#ffffff';
+ctx.strokeStyle = '#2a1a0a';
+ctx.lineWidth = 4;
+ctx.font = 'bold 48px monospace';
+ctx.textAlign = 'center';
+ctx.strokeText('FARM', 256, 480);
+ctx.fillText('FARM', 256, 480);
+ctx.strokeText('SIM', 256, 506);
+ctx.fillText('SIM', 256, 506);
+
+// Rounded corners (clip)
+// Note: save this 512x512 PNG, then use an online converter for .ico if needed
+</script>
+</body>
+</html>
