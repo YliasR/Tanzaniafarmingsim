@@ -35,14 +35,31 @@
   <!-- Sensor readout -->
   <div id="sensor-panel">
     <h3>&#9670; LIVE SENSORS</h3>
-    <div class="sensor-row"><span class="label">Moisture</span><span class="value" id="v-moisture">34.2%</span></div>
-    <div class="sensor-row"><span class="label">pH</span><span class="value" id="v-ph">6.1</span></div>
-    <div class="sensor-row"><span class="label">Soil Temp</span><span class="value" id="v-soiltemp">24.5&deg;C</span></div>
-    <div class="sensor-row"><span class="label">Air Temp</span><span class="value" id="v-airtemp">28.0&deg;C</span></div>
-    <div class="sensor-row"><span class="label">Humidity</span><span class="value" id="v-humid">72.0%</span></div>
-    <div class="sensor-row"><span class="label">Nitrogen</span><span class="value" id="v-n">85 mg/kg</span></div>
-    <div class="sensor-row"><span class="label">Phosphorus</span><span class="value" id="v-p">30 mg/kg</span></div>
-    <div class="sensor-row"><span class="label">Potassium</span><span class="value" id="v-k">160 mg/kg</span></div>
+    <div class="sensor-mode-toggle">
+      <button class="sensor-mode-btn active" id="btn-auto" onclick="setSensorMode('auto')">AUTO</button>
+      <button class="sensor-mode-btn" id="btn-manual" onclick="setSensorMode('manual')">MANUAL</button>
+    </div>
+    <div id="sensor-auto">
+      <div class="sensor-row"><span class="label">Moisture</span><span class="value" id="v-moisture">34.2%</span></div>
+      <div class="sensor-row"><span class="label">pH</span><span class="value" id="v-ph">6.1</span></div>
+      <div class="sensor-row"><span class="label">Soil Temp</span><span class="value" id="v-soiltemp">24.5&deg;C</span></div>
+      <div class="sensor-row"><span class="label">Air Temp</span><span class="value" id="v-airtemp">28.0&deg;C</span></div>
+      <div class="sensor-row"><span class="label">Humidity</span><span class="value" id="v-humid">72.0%</span></div>
+      <div class="sensor-row"><span class="label">Nitrogen</span><span class="value" id="v-n">85 mg/kg</span></div>
+      <div class="sensor-row"><span class="label">Phosphorus</span><span class="value" id="v-p">30 mg/kg</span></div>
+      <div class="sensor-row"><span class="label">Potassium</span><span class="value" id="v-k">160 mg/kg</span></div>
+    </div>
+    <div id="sensor-manual" style="display:none;">
+      <div class="sensor-row"><span class="label">Moisture %</span><input class="sensor-input" id="m-moisture" type="number" min="0" max="100" step="0.1" value="34.2"></div>
+      <div class="sensor-row"><span class="label">pH</span><input class="sensor-input" id="m-ph" type="number" min="3" max="10" step="0.1" value="6.1"></div>
+      <div class="sensor-row"><span class="label">Soil &deg;C</span><input class="sensor-input" id="m-soiltemp" type="number" min="-10" max="60" step="0.1" value="24.5"></div>
+      <div class="sensor-row"><span class="label">Air &deg;C</span><input class="sensor-input" id="m-airtemp" type="number" min="-10" max="55" step="0.1" value="28.0"></div>
+      <div class="sensor-row"><span class="label">Humidity %</span><input class="sensor-input" id="m-humid" type="number" min="0" max="100" step="0.1" value="72.0"></div>
+      <div class="sensor-row"><span class="label">N mg/kg</span><input class="sensor-input" id="m-n" type="number" min="0" max="500" step="1" value="85"></div>
+      <div class="sensor-row"><span class="label">P mg/kg</span><input class="sensor-input" id="m-p" type="number" min="0" max="200" step="1" value="30"></div>
+      <div class="sensor-row"><span class="label">K mg/kg</span><input class="sensor-input" id="m-k" type="number" min="0" max="500" step="1" value="160"></div>
+      <button id="apply-manual-btn" onclick="applyManualSensors()">APPLY</button>
+    </div>
     <div style="margin-top:10px; font-size:10px; color:#555;">Node: FARM001 &bull; <span id="v-time">--:--</span></div>
   </div>
 

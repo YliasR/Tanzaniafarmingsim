@@ -44,17 +44,66 @@ function toggleNokia() {
 // Sensor simulation
 // ============================================================
 const S = { moisture: 34.2, ph: 6.1, soilTemp: 24.5, airTemp: 28.0, humid: 72.0, n: 85, p: 30, k: 160 };
+let sensorMode = 'auto'; // 'auto' or 'manual'
 
-function updateSensors() {
-  S.moisture = Math.max(15, Math.min(80, S.moisture + (Math.random() - 0.48) * 0.5));
-  S.ph = Math.max(4.5, Math.min(8.0, S.ph + (Math.random() - 0.5) * 0.02));
-  S.soilTemp += (Math.random() - 0.5) * 0.1;
-  S.airTemp += (Math.random() - 0.5) * 0.15;
-  S.humid = Math.max(30, Math.min(95, S.humid + (Math.random() - 0.5) * 0.3));
-  S.n = Math.max(20, Math.min(200, S.n + (Math.random() - 0.5)));
-  S.p = Math.max(10, Math.min(80, S.p + (Math.random() - 0.5) * 0.5));
-  S.k = Math.max(50, Math.min(300, S.k + (Math.random() - 0.5)));
+// Realistic value ranges for clamping
+const SENSOR_LIMITS = {
+  moisture:  { min: 0,   max: 100 },
+  ph:        { min: 3,   max: 10  },
+  soilTemp:  { min: -10, max: 60  },
+  airTemp:   { min: -10, max: 55  },
+  humid:     { min: 0,   max: 100 },
+  n:         { min: 0,   max: 500 },
+  p:         { min: 0,   max: 200 },
+  k:         { min: 0,   max: 500 },
+};
 
+function setSensorMode(mode) {
+  sensorMode = mode;
+  document.getElementById('btn-auto').classList.toggle('active', mode === 'auto');
+  document.getElementById('btn-manual').classList.toggle('active', mode === 'manual');
+  document.getElementById('sensor-auto').style.display = mode === 'auto' ? '' : 'none';
+  document.getElementById('sensor-manual').style.display = mode === 'manual' ? '' : 'none';
+  // Sync manual inputs with current S values when switching to manual
+  if (mode === 'manual') {
+    document.getElementById('m-moisture').value = S.moisture.toFixed(1);
+    document.getElementById('m-ph').value = S.ph.toFixed(1);
+    document.getElementById('m-soiltemp').value = S.soilTemp.toFixed(1);
+    document.getElementById('m-airtemp').value = S.airTemp.toFixed(1);
+    document.getElementById('m-humid').value = S.humid.toFixed(1);
+    document.getElementById('m-n').value = Math.round(S.n);
+    document.getElementById('m-p').value = Math.round(S.p);
+    document.getElementById('m-k').value = Math.round(S.k);
+  }
+}
+
+function clamp(val, min, max) { return Math.max(min, Math.min(max, val)); }
+
+function applyManualSensors() {
+  S.moisture = clamp(parseFloat(document.getElementById('m-moisture').value) || 0, SENSOR_LIMITS.moisture.min, SENSOR_LIMITS.moisture.max);
+  S.ph       = clamp(parseFloat(document.getElementById('m-ph').value) || 0, SENSOR_LIMITS.ph.min, SENSOR_LIMITS.ph.max);
+  S.soilTemp = clamp(parseFloat(document.getElementById('m-soiltemp').value) || 0, SENSOR_LIMITS.soilTemp.min, SENSOR_LIMITS.soilTemp.max);
+  S.airTemp  = clamp(parseFloat(document.getElementById('m-airtemp').value) || 0, SENSOR_LIMITS.airTemp.min, SENSOR_LIMITS.airTemp.max);
+  S.humid    = clamp(parseFloat(document.getElementById('m-humid').value) || 0, SENSOR_LIMITS.humid.min, SENSOR_LIMITS.humid.max);
+  S.n        = clamp(parseFloat(document.getElementById('m-n').value) || 0, SENSOR_LIMITS.n.min, SENSOR_LIMITS.n.max);
+  S.p        = clamp(parseFloat(document.getElementById('m-p').value) || 0, SENSOR_LIMITS.p.min, SENSOR_LIMITS.p.max);
+  S.k        = clamp(parseFloat(document.getElementById('m-k').value) || 0, SENSOR_LIMITS.k.min, SENSOR_LIMITS.k.max);
+
+  // Write clamped values back to inputs
+  document.getElementById('m-moisture').value = S.moisture.toFixed(1);
+  document.getElementById('m-ph').value = S.ph.toFixed(1);
+  document.getElementById('m-soiltemp').value = S.soilTemp.toFixed(1);
+  document.getElementById('m-airtemp').value = S.airTemp.toFixed(1);
+  document.getElementById('m-humid').value = S.humid.toFixed(1);
+  document.getElementById('m-n').value = Math.round(S.n);
+  document.getElementById('m-p').value = Math.round(S.p);
+  document.getElementById('m-k').value = Math.round(S.k);
+
+  // Update the auto display too so AI analysis reads correct values
+  refreshSensorDisplay();
+}
+
+function refreshSensorDisplay() {
   document.getElementById('v-moisture').textContent = S.moisture.toFixed(1) + '%';
   document.getElementById('v-ph').textContent = S.ph.toFixed(1);
   document.getElementById('v-soiltemp').textContent = S.soilTemp.toFixed(1) + '\u00B0C';
@@ -63,6 +112,22 @@ function updateSensors() {
   document.getElementById('v-n').textContent = Math.round(S.n) + ' mg/kg';
   document.getElementById('v-p').textContent = Math.round(S.p) + ' mg/kg';
   document.getElementById('v-k').textContent = Math.round(S.k) + ' mg/kg';
+}
+
+function updateSensors() {
+  // Only auto-drift values in auto mode
+  if (sensorMode === 'auto') {
+    S.moisture = Math.max(15, Math.min(80, S.moisture + (Math.random() - 0.48) * 0.5));
+    S.ph = Math.max(4.5, Math.min(8.0, S.ph + (Math.random() - 0.5) * 0.02));
+    S.soilTemp += (Math.random() - 0.5) * 0.1;
+    S.airTemp += (Math.random() - 0.5) * 0.15;
+    S.humid = Math.max(30, Math.min(95, S.humid + (Math.random() - 0.5) * 0.3));
+    S.n = Math.max(20, Math.min(200, S.n + (Math.random() - 0.5)));
+    S.p = Math.max(10, Math.min(80, S.p + (Math.random() - 0.5) * 0.5));
+    S.k = Math.max(50, Math.min(300, S.k + (Math.random() - 0.5)));
+  }
+
+  refreshSensorDisplay();
 
   const now = new Date();
   document.getElementById('v-time').textContent =

@@ -85,6 +85,65 @@ canvas { display: block; }
 .sensor-row .label { color: #888; }
 .sensor-row .value { color: #fff; font-weight: 600; font-variant-numeric: tabular-nums; }
 
+/* Sensor mode toggle */
+.sensor-mode-toggle {
+  display: flex;
+  gap: 0;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #333;
+}
+.sensor-mode-btn {
+  flex: 1;
+  padding: 4px 0;
+  text-align: center;
+  font-size: 8px;
+  font-family: 'Press Start 2P', monospace;
+  cursor: pointer;
+  background: #1a1a2e;
+  color: #666;
+  border: none;
+  transition: all 0.2s;
+}
+.sensor-mode-btn.active {
+  background: #7cfc00;
+  color: #0a0a0a;
+}
+
+/* Manual sensor inputs */
+.sensor-input {
+  width: 80px;
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 3px 6px;
+  color: #fff;
+  font-size: 12px;
+  font-family: 'Inter', sans-serif;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+  text-align: right;
+}
+.sensor-input:focus {
+  border-color: #7cfc00;
+}
+.sensor-input::-webkit-inner-spin-button { opacity: 0.5; }
+#apply-manual-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px;
+  background: #7cfc00;
+  border: none;
+  border-radius: 6px;
+  color: #0a0a0a;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+#apply-manual-btn:hover { background: #90ff20; }
+
 /* Nokia phone */
 #nokia-container {
   position: absolute;
