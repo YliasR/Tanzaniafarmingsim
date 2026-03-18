@@ -500,6 +500,7 @@ window.addEventListener('keydown', e => {
     const cell = farmCells[hoveredCell];
     if (cell.stage >= 0 && cell.stage < 3 && fertilizerCount > 0) {
       fertilizerCount--;
+      if (typeof onFertilizerUsed === 'function') onFertilizerUsed();
       cell.stage++;
       cell.watered = false;
       if (cell.mesh) scene.remove(cell.mesh);
@@ -549,6 +550,7 @@ function updateAnimalProduction(dt) {
     if (milkCooldown <= 0) {
       const milked = ownedCows;
       animalProducts.milk += milked;
+      if (typeof onMilkCollected === 'function') onMilkCollected(milked);
       milkCooldown = MILK_INTERVAL;
       _flashAnimalProduct('milk', milked);
     }

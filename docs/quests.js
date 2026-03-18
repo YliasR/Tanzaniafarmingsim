@@ -1,107 +1,10 @@
 // ============================================================
-// Quest System
+// Quest Engine — state, HUD, dialog, progress hooks
+// Quest definitions live in quest-data.js (loaded first).
 // ============================================================
 
 // Neighbor NPC position (mirrors scene.js: _hX + 6.5, _hZ + 1.5)
 const questNPCPos = new THREE.Vector3(-11.5, groundAt(-11.5, 13.5) + 1.0, 13.5);
-
-// ---- Quest definitions ----
-const QUESTS = [
-  {
-    id: 'first_harvest',
-    title: 'First Harvest',
-    desc: 'Harvest 3 maize crops to get started.',
-    hint: 'Plant maize with [1] then [F], water with [F], wait, harvest with [F].',
-    goal: 3,
-    reward: 200,
-    check: () => questProgress.first_harvest || 0,
-  },
-  {
-    id: 'buy_watercan',
-    title: 'Get a Watering Can',
-    desc: 'Buy a watering can from the Duka shop.',
-    hint: 'Walk to the shop and press [E] to open it.',
-    goal: 1,
-    reward: 150,
-    check: () => ownedTools.wateringCan ? 1 : 0,
-  },
-  {
-    id: 'earn_1000',
-    title: 'Growing Wealth',
-    desc: 'Save up 1,000 TSh.',
-    hint: 'Sell crops at the Soko market to earn money.',
-    goal: 1000,
-    reward: 300,
-    check: () => playerMoney,
-  },
-  {
-    id: 'buy_chickens',
-    title: 'Poultry Farmer',
-    desc: 'Own at least 8 chickens.',
-    hint: 'Buy chickens at the Duka shop.',
-    goal: 8,
-    reward: 250,
-    check: () => ownedChickens,
-  },
-  {
-    id: 'collect_eggs',
-    title: 'Egg Collector',
-    desc: 'Collect 10 eggs from your chickens.',
-    hint: 'Chickens produce eggs over time. Keep the trough filled to speed it up.',
-    goal: 10,
-    reward: 300,
-    check: () => questProgress.collect_eggs || 0,
-  },
-  {
-    id: 'hunter',
-    title: 'Safari Hunter',
-    desc: 'Hunt animals and collect 5 pieces of meat.',
-    hint: 'Press [G] to enter hunt mode, find impalas in the savanna.',
-    goal: 5,
-    reward: 400,
-    check: () => questProgress.hunter || 0,
-  },
-  {
-    id: 'expand_land',
-    title: 'Land Baron',
-    desc: 'Purchase a new land plot.',
-    hint: 'Buy a plot from the Land section in the Duka shop.',
-    goal: 1,
-    reward: 500,
-    check: () => {
-      let count = 0;
-      for (const k in ownedPlots) { if (ownedPlots[k]) count++; }
-      return count;
-    },
-  },
-  {
-    id: 'build_barn',
-    title: 'Storage Upgrade',
-    desc: 'Build the Ghala storage barn.',
-    hint: 'Buy the barn upgrade from the Duka shop.',
-    goal: 1,
-    reward: 600,
-    check: () => UPGRADES.storageBarn.built ? 1 : 0,
-  },
-  {
-    id: 'all_crops',
-    title: 'Crop Diversity',
-    desc: 'Harvest at least one of every crop type.',
-    hint: 'Grow and harvest maize, beans, sorghum, cassava, and groundnuts.',
-    goal: 5,
-    reward: 800,
-    check: () => cropInventory.filter(c => (questProgress.all_crops_seen || [])[cropInventory.indexOf(c)] > 0).length,
-  },
-  {
-    id: 'earn_10000',
-    title: 'Wealthy Farmer',
-    desc: 'Accumulate 10,000 TSh.',
-    hint: 'Keep farming, selling, and expanding your operation.',
-    goal: 10000,
-    reward: 1500,
-    check: () => playerMoney,
-  },
-];
 
 // ---- Quest state ----
 let questCompleted = [];       // array of completed quest IDs
@@ -145,8 +48,7 @@ function checkQuestCompletion() {
   const quest = getActiveQuest();
   if (!quest) return;
 
-  const current = quest.check();
-  if (current >= quest.goal) {
+  if (quest.check() >= quest.goal) {
     completeQuest(quest);
   }
 }
@@ -155,11 +57,9 @@ function completeQuest(quest) {
   questCompleted.push(quest.id);
   activeQuestId = null;
 
-  // Give reward
   playerMoney += quest.reward;
   if (typeof updateMoneyHUD === 'function') updateMoneyHUD();
 
-  // Show completion notification
   showQuestNotification('Quest Complete: ' + quest.title + '  +' + quest.reward + ' TSh');
   updateQuestHUD();
 }
@@ -184,11 +84,9 @@ function openQuestDialog() {
   const body    = document.getElementById('qd-body');
   const btn     = document.getElementById('qd-action');
 
-  // Determine what to show
   const active = getActiveQuest();
 
   if (active) {
-    // Show progress on current quest
     const current = Math.min(active.check(), active.goal);
     title.textContent = active.title;
     body.innerHTML =
@@ -200,7 +98,6 @@ function openQuestDialog() {
   } else {
     const next = getNextQuest();
     if (next) {
-      // Offer next quest
       title.textContent = next.title;
       body.innerHTML =
         '<p class="qd-desc">' + next.desc + '</p>' +
@@ -214,7 +111,6 @@ function openQuestDialog() {
         showQuestNotification('New Quest: ' + next.title);
       };
     } else {
-      // All quests done
       title.textContent = 'All Done!';
       body.innerHTML = '<p class="qd-desc">You\'ve completed every quest I have. Impressive work, farmer!</p>';
       btn.textContent = 'OK';
@@ -231,16 +127,24 @@ function closeQuestDialog() {
   container.requestPointerLock();
 }
 
-// ---- Progress tracking hooks (called from other systems) ----
+// ============================================================
+// Progress tracking hooks — called from farming/hunting/shop
+// ============================================================
+
 function onCropHarvested(seedType) {
-  // Always track crop diversity (even before that quest is active)
+  // Always track crop diversity
   if (!questProgress.all_crops_seen) questProgress.all_crops_seen = [0, 0, 0, 0, 0];
   questProgress.all_crops_seen[seedType] = 1;
 
-  if (!activeQuestId) return;
+  // Total harvested (any type)
+  questProgress.total_harvested = (questProgress.total_harvested || 0) + 1;
 
+  // Specific crop quests
   if (activeQuestId === 'first_harvest' && seedType === 0) {
     questProgress.first_harvest = (questProgress.first_harvest || 0) + 1;
+  }
+  if (activeQuestId === 'harvest_beans' && seedType === 1) {
+    questProgress.harvest_beans = (questProgress.harvest_beans || 0) + 1;
   }
 }
 
@@ -248,12 +152,30 @@ function onEggCollected(count) {
   questProgress.collect_eggs = (questProgress.collect_eggs || 0) + count;
 }
 
+function onMilkCollected(count) {
+  questProgress.collect_milk = (questProgress.collect_milk || 0) + count;
+}
+
 function onMeatCollected(count) {
   questProgress.hunter = (questProgress.hunter || 0) + count;
 }
 
-// Fix all_crops check to use the tracked data properly
-QUESTS.find(q => q.id === 'all_crops').check = () => {
-  if (!questProgress.all_crops_seen) return 0;
-  return questProgress.all_crops_seen.filter(v => v > 0).length;
-};
+function onHideCollected(count) {
+  questProgress.hide_collector = (questProgress.hide_collector || 0) + count;
+}
+
+function onCropSold(seedType, qty) {
+  questProgress.sell_first_crops = (questProgress.sell_first_crops || 0) + qty;
+}
+
+function onLootSold(qty) {
+  questProgress.sell_loot = (questProgress.sell_loot || 0) + qty;
+}
+
+function onFertilizerUsed() {
+  questProgress.use_fertilizer = (questProgress.use_fertilizer || 0) + 1;
+}
+
+function onTroughFilled(amount) {
+  questProgress.feed_animals = (questProgress.feed_animals || 0) + amount;
+}

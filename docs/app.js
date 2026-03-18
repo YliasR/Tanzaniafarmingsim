@@ -206,6 +206,7 @@ window.addEventListener('keydown', e => {
           const toAdd = Math.min(animalFeedCount, space);
           troughFeedStored += toAdd;
           animalFeedCount -= toAdd;
+          if (typeof onTroughFilled === 'function') onTroughFilled(toAdd);
           updateTroughVisuals();
           return;
         }

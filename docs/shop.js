@@ -304,9 +304,11 @@ function buyCow() {
 // ============================================================
 function sellCrop(idx) {
   if (cropInventory[idx] <= 0) return;
+  const qty = cropInventory[idx];
   const mult = typeof getSellMultiplier === 'function' ? getSellMultiplier() : 1;
-  playerMoney += Math.round(cropInventory[idx] * CROP_PRICES[idx] * mult);
+  playerMoney += Math.round(qty * CROP_PRICES[idx] * mult);
   cropInventory[idx] = 0;
+  if (typeof onCropSold === 'function') onCropSold(idx, qty);
   renderMarket();
   updateMoneyHUD();
 }
@@ -322,9 +324,11 @@ function sellProduct(key) {
 
 function sellLoot(key) {
   if (inventory[key] <= 0) return;
+  const qty = inventory[key];
   const mult = typeof getSellMultiplier === 'function' ? getSellMultiplier() : 1;
-  playerMoney += Math.round(inventory[key] * LOOT_PRICES[key] * mult);
+  playerMoney += Math.round(qty * LOOT_PRICES[key] * mult);
   inventory[key] = 0;
+  if (typeof onLootSold === 'function') onLootSold(qty);
   renderMarket();
   updateMoneyHUD();
   updateInventoryHUD();
