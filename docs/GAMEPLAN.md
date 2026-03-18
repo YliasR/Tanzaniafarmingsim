@@ -121,18 +121,17 @@
 
 ## Phase 9: itch.io Upload
 
-- [ ] Create itch.io account + game page
-- [ ] Upload two versions:
-  - **HTML5** (browser playable) — zip the game files, upload as HTML
+- [x] Create itch.io account + game page
+- [x] Upload:
   - **Downloadable** — Electron builds per platform
-- [ ] Set up game page:
+- [x] Set up game page:
   - Title: "SoilSMS Farm" (or new name)
   - Cover image / screenshots from the game
   - Description: low-poly Tanzanian farm sim
   - Tags: farming, low-poly, simulation, survival, indie
   - Price: free (or pay-what-you-want)
-- [ ] Embed the HTML5 version for instant browser play
-- [ ] Link downloadable builds for people who want the full experience
+- [x] Embed the HTML5 version for instant browser play
+- [x] Link downloadable builds for people who want the full experience
 
 ---
 
