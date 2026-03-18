@@ -36,4 +36,3 @@ dist-temp2/
 *.deb
 *.dmg
 *.snap
-package-lock.json
