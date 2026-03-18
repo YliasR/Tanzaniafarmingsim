@@ -76,6 +76,14 @@ canvas { display: block; }
   margin-top: 4px;
   letter-spacing: 2px;
 }
+#weather-hud {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: #e0e0e0;
+  text-shadow: 0 0 6px rgba(0,0,0,0.6);
+  margin-top: 3px;
+  letter-spacing: 1px;
+}
 
 /* ============================================================
    Nokia 2D widget

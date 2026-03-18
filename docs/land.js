@@ -89,13 +89,24 @@ function buildPlotGround(plot) {
   const cx = plot.ox + farmW * 0.5;
   const cz = plot.oz + farmD * 0.5;
 
-  // Raised bed
-  const bedH = FARM_SURFACE_Y - (FLAT_FARM_Y - 0.30);
+  // Sample terrain across the plot to find the lowest point
+  let minGround = Infinity;
+  for (let sx = plot.ox; sx <= plot.ox + farmW; sx += CELL_SIZE) {
+    for (let sz = plot.oz; sz <= plot.oz + farmD; sz += CELL_SIZE) {
+      const h = _origGroundAt(sx, sz);
+      if (h < minGround) minGround = h;
+    }
+  }
+
+  // Raised bed extends from well below the lowest terrain point up to FARM_SURFACE_Y
+  const bedTop    = FARM_SURFACE_Y;
+  const bedBottom = Math.min(minGround - 0.5, FLAT_FARM_Y - 0.5);
+  const bedH      = bedTop - bedBottom;
   const soil = new THREE.Mesh(
     new THREE.BoxGeometry(farmW + 0.5, bedH, farmD + 0.5),
     new THREE.MeshLambertMaterial({ color: plot.soilColor })
   );
-  soil.position.set(cx, FARM_SURFACE_Y - bedH * 0.5, cz);
+  soil.position.set(cx, bedTop - bedH * 0.5, cz);
   soil.receiveShadow = true;
   group.add(soil);
 

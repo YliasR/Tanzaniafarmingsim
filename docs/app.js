@@ -70,9 +70,10 @@ function updateDayNight(dt) {
   const warmth = 1 - Math.max(0, sunElev); // 1 at horizon, 0 at zenith
   sunLight.color.setRGB(1.0, 0.88 + warmth * 0.12, 0.55 + Math.max(0, sunElev) * 0.45);
 
-  // Ambient + hemi
+  // Ambient + hemi (weather modifier)
   const ambInt = lerpKF(SKY_KF, dayTime, 'amb');
-  ambientLight.intensity = ambInt;
+  const wAmbMult = typeof getWeatherAmbientMult === 'function' ? getWeatherAmbientMult() : 1;
+  ambientLight.intensity = ambInt * wAmbMult;
   if (sunElev > 0) {
     ambientLight.color.setHex(0xffe8c0);
     hemiLight.intensity = 0.45 * Math.max(0, sunElev);
@@ -309,8 +310,15 @@ function animate() {
   // ---- Day / Night cycle ----
   updateDayNight(dt);
 
+  // ---- Weather ----
+  if (typeof updateWeather === 'function') updateWeather(dt);
+  if (typeof updateWeatherHUD === 'function') updateWeatherHUD();
+
   // ---- Sensor drift ----
   if (Math.floor(time * 60) % 60 === 0) updateSensors();
+
+  // ---- Auto SMS analysis (once per game day) ----
+  if (typeof checkAutoAnalysis === 'function') checkAutoAnalysis();
 
   // ---- Scene animations ----
   rpiGroup.rotation.z = Math.sin(time * 0.8) * 0.01;
@@ -328,6 +336,9 @@ function animate() {
       c.peckTimer   -= dt;
       c.mesh.position.x = c.baseX + Math.cos(c.wanderAngle) * 1.5;
       c.mesh.position.z = c.baseZ + Math.sin(c.wanderAngle) * 1.5;
+      const cSafe = moveOutOfReservedPlots(c.mesh.position.x, c.mesh.position.z, 0.8);
+      c.mesh.position.x = cSafe.x;
+      c.mesh.position.z = cSafe.z;
       c.mesh.rotation.y = c.wanderAngle + Math.PI / 2;
       if (c.peckTimer < 0.5 && c.peckTimer > 0) {
         c.mesh.rotation.x = Math.sin(c.peckTimer * 12) * 0.3;
@@ -349,6 +360,9 @@ function animate() {
       g.wanderAngle += g.wanderSpeed;
       g.mesh.position.x = g.baseX + Math.cos(g.wanderAngle) * g.wanderRadius;
       g.mesh.position.z = g.baseZ + Math.sin(g.wanderAngle) * g.wanderRadius;
+      const gSafe = moveOutOfReservedPlots(g.mesh.position.x, g.mesh.position.z, 1.0);
+      g.mesh.position.x = gSafe.x;
+      g.mesh.position.z = gSafe.z;
       g.mesh.rotation.y = g.wanderAngle + Math.PI / 2;
     }
     g.mesh.position.y = getGroundHeight(g.mesh.position.x, g.mesh.position.z) + Math.sin(time * 3 + g.wanderAngle) * (isNight ? 0.004 : 0.02);
@@ -390,6 +404,26 @@ function animate() {
     b.mesh.position.y = b.height + Math.sin(time * 0.5 + b.angle) * 1.5;
     b.mesh.rotation.y = b.angle + Math.PI / 2;
   });
+
+  // ---- NPC idle animations ----
+  if (typeof npcs !== 'undefined') {
+    npcs.forEach(npc => {
+      const t = time + npc.idlePhase;
+      // Gentle body sway
+      npc.mesh.position.y = npc.baseY + Math.sin(t * 1.2) * 0.01;
+      // Head look-around
+      const head = npc.mesh.getObjectByName('head');
+      if (head) {
+        head.rotation.y = Math.sin(t * 0.7) * 0.2;
+        head.rotation.x = Math.sin(t * 0.5) * 0.05;
+      }
+      // Arm sway
+      const armL = npc.mesh.getObjectByName('armL');
+      const armR = npc.mesh.getObjectByName('armR');
+      if (armL) armL.rotation.x = Math.sin(t * 0.9) * 0.08;
+      if (armR) armR.rotation.x = Math.sin(t * 0.9 + 1.5) * 0.08;
+    });
+  }
 
   renderer.render(scene, camera);
 }
@@ -481,5 +515,6 @@ function toggleApiKeyVisibility() {
 
 // Init
 updateSensors();
+if (typeof initWeather === 'function') initWeather();
 if (typeof updateMoneyHUD === 'function') updateMoneyHUD();
 animate();

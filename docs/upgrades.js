@@ -72,11 +72,11 @@ function buildStorageBarn() {
 }
 
 // ============================================================
-// Water Pump — at (-3, 8), just south of farm
+// Water Pump — at (-10, 12), west of farm (near barn)
 // ============================================================
 function buildWaterPump() {
   const g = new THREE.Group();
-  const px = -3, pz = 8;
+  const px = -10, pz = 12;
   const py = groundAt(px, pz);
   g.position.set(px, py, pz);
 
@@ -121,11 +121,11 @@ function buildWaterPump() {
 }
 
 // ============================================================
-// Solar Panel — at (-5, 8), next to pump
+// Solar Panel — at (-12, 12), next to pump
 // ============================================================
 function buildSolarPanel() {
   const g = new THREE.Group();
-  const sx = -5, sz = 8;
+  const sx = -12, sz = 12;
   const sy = groundAt(sx, sz);
   g.position.set(sx, sy, sz);
 
@@ -171,6 +171,7 @@ function buildSolarPanel() {
 // Sensor Node — unhide rpiGroup + serverGroup
 // ============================================================
 function buildSensorNode() {
+  serverGroup.position.y = groundAt(serverGroup.position.x, serverGroup.position.z);
   rpiGroup.visible = true;
   serverGroup.visible = true;
 
@@ -345,7 +346,7 @@ function renderShopUpgrades() {
 // ============================================================
 
 // Water pump: auto-water crops within range
-const PUMP_POS = { x: -3, z: 8 };
+const PUMP_POS = { x: -10, z: 12 };
 const PUMP_RANGE = 14; // meters
 
 function applyWaterPump() {
@@ -393,8 +394,11 @@ function updateSoilHUD() {
   const el = document.getElementById('soil-data-hud');
   if (!el) return;
   const s = getSoilState();
+  const weatherLabel = typeof currentWeather !== 'undefined' && typeof WEATHER_TYPES !== 'undefined'
+    ? WEATHER_TYPES[currentWeather].icon : '';
   el.innerHTML =
     `<span>M:${s.moisture.toFixed(0)}%</span>` +
     `<span>pH:${s.ph.toFixed(1)}</span>` +
-    `<span>N:${Math.round(s.n)}</span>`;
+    `<span>N:${Math.round(s.n)}</span>` +
+    (weatherLabel ? `<span>${weatherLabel}</span>` : '');
 }

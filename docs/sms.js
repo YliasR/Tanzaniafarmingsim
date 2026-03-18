@@ -16,6 +16,53 @@ const prebuiltSMS = [
 let llmSMS        = [];
 let activeSMSList = prebuiltSMS;
 
+let analysisRunning = false;
+let lastAnalysisDay = -1;  // track game day for auto-trigger
+
+function hasSensorAndKey() {
+  const hasSensor = typeof UPGRADES !== 'undefined' && UPGRADES.sensorNode && UPGRADES.sensorNode.built;
+  const hasKey    = !!(localStorage.getItem('farmsim_openrouter_key'));
+  return hasSensor && hasKey;
+}
+
+function requestAnalysis() {
+  if (analysisRunning) return;
+  analysisRunning = true;
+
+  // Show loading on Nokia
+  const phoneEl = document.getElementById('nokia-container');
+  const screen  = document.getElementById('nokia-screen');
+  const text    = document.getElementById('nokia-text');
+  const hint    = document.getElementById('nokia-hint');
+  if (phoneEl) phoneEl.style.display = '';
+  if (screen)  screen.classList.add('lit');
+  if (text)    text.textContent = 'Analyzing soil...\nContacting server...';
+  if (hint)    hint.textContent = 'PLEASE WAIT';
+  nokiaOn = true;
+
+  runAnalysis().then(result => {
+    analysisRunning = false;
+    if (!result.ok) {
+      // Show error on Nokia
+      if (text) text.textContent = 'SMS ERROR:\n' + result.error;
+      if (hint) hint.textContent = '[ N ] CLOSE';
+    }
+    // If ok, runAnalysis already calls toggleNokia to show the result
+  });
+}
+
+// Auto-trigger analysis once per game day when sensor node is built
+function checkAutoAnalysis() {
+  if (!hasSensorAndKey()) return;
+  if (typeof DAY_DURATION === 'undefined' || typeof farmRealTime === 'undefined') return;
+  const currentDay = Math.floor(farmRealTime / DAY_DURATION);
+  if (currentDay !== lastAnalysisDay) {
+    lastAnalysisDay = currentDay;
+    // Only auto-trigger if we have at least 1 day played (skip initial)
+    if (currentDay > 0) requestAnalysis();
+  }
+}
+
 function toggleNokia() {
   const phoneEl = document.getElementById('nokia-container');
   const screen  = document.getElementById('nokia-screen');
@@ -23,13 +70,26 @@ function toggleNokia() {
   const hint    = document.getElementById('nokia-hint');
   if (!screen) return;
 
+  // If analysis is running, ignore toggle
+  if (analysisRunning) return;
+
   if (!nokiaOn) {
+    // First press with sensor + key: trigger fresh AI report
+    if (hasSensorAndKey() && activeSMSList === prebuiltSMS && llmSMS.length === 0) {
+      requestAnalysis();
+      return;
+    }
+
     // Show widget, turn screen on
     phoneEl.style.display = '';
     nokiaOn = true;
     screen.classList.add('lit');
     text.textContent = activeSMSList[smsIndex];
-    hint.textContent = activeSMSList.length > 1 ? '[ N ] NEXT' : '[ N ] CLOSE';
+    const canAnalyze = hasSensorAndKey();
+    const pageInfo = activeSMSList.length > 1 ? ` ${smsIndex + 1}/${activeSMSList.length}` : '';
+    hint.textContent = activeSMSList.length > 1
+      ? `[ N ] NEXT${pageInfo}` + (canAnalyze ? '  [ R ] NEW' : '')
+      : '[ N ] CLOSE' + (canAnalyze ? '  [ R ] NEW' : '');
     smsIndex = (smsIndex + 1) % activeSMSList.length;
     screen.scrollTop = 0;
   } else {
@@ -43,6 +103,10 @@ function toggleNokia() {
       text.textContent = 'No new messages';
       hint.textContent = '[ N ] READ SMS';
       phoneEl.style.display = 'none';
+    } else {
+      const canAnalyze = hasSensorAndKey();
+      const pageInfo = ` ${smsIndex}/${activeSMSList.length}`;
+      hint.textContent = `[ N ] NEXT${pageInfo}` + (canAnalyze ? '  [ R ] NEW' : '');
     }
   }
 }
@@ -107,6 +171,9 @@ Output rules:
 - Prioritize the most critical actions first
 - Consider local Tanzanian crops: maize, cassava, sorghum, beans, groundnuts, sunflower, rice, vegetables
 - If data values are null/missing, note that sensor reading failed and advise re-check
+- Factor in current weather conditions (rain boosts soil moisture, drought dries it out)
+- If drought, warn about crop slowdown and advise watering
+- If rain/storm, note the free watering benefit and suggest planting
 - Always end with a short timing recommendation for planting or treatment
 
 NPK interpretation reference (mg/kg):
@@ -119,6 +186,31 @@ pH interpretation:
 
 Moisture interpretation:
   <20% = very dry, 20-40% = dry, 40-70% = good, >70% = waterlogged`;
+
+// Split long AI text into Nokia-sized pages (~160 chars each, splitting on line breaks)
+const SMS_PAGE_CHARS = 160;
+
+function splitSMSPages(text, header) {
+  const lines = text.split('\n');
+  const pages = [];
+  let current = '';
+
+  for (const line of lines) {
+    // If adding this line would exceed the limit, start a new page
+    if (current.length > 0 && current.length + line.length + 1 > SMS_PAGE_CHARS) {
+      pages.push(current.trim());
+      current = '';
+    }
+    current += (current ? '\n' : '') + line;
+  }
+  if (current.trim()) pages.push(current.trim());
+
+  // Add header + page numbers
+  if (pages.length === 1) {
+    return [header + '\n' + pages[0]];
+  }
+  return pages.map((p, i) => `${header} (${i + 1}/${pages.length})\n${p}`);
+}
 
 async function runAnalysis(apiKey, model = 'arcee-ai/trinity-large-preview:free') {
   apiKey = apiKey || localStorage.getItem('farmsim_openrouter_key') || '';
@@ -134,10 +226,10 @@ Nitrogen: ${Math.round(S.n)} mg/kg
 Phosphorus: ${Math.round(S.p)} mg/kg
 Potassium: ${Math.round(S.k)} mg/kg
 
+CURRENT WEATHER: ${typeof currentWeather !== 'undefined' ? WEATHER_TYPES[currentWeather].label : 'Unknown'}
+
 WEATHER FORECAST (next 3 days):
-Day 1: 29C, 2mm rain
-Day 2: 27C, 8mm rain
-Day 3: 26C, 12mm rain
+${typeof getWeatherForecastString === 'function' ? getWeatherForecastString() : 'Forecast unavailable'}
 
 Provide your SMS advisory now.`;
 
@@ -176,9 +268,14 @@ Provide your SMS advisory now.`;
                     now.getHours().toString().padStart(2,'0') + ':' +
                     now.getMinutes().toString().padStart(2,'0');
 
-    const formatted = `SoilSMS ${dateStr}\n${advice}`;
-    llmSMS.unshift(formatted);
-    if (llmSMS.length > 10) llmSMS.pop();
+    const header = `SoilSMS ${dateStr}`;
+    const pages  = splitSMSPages(advice, header);
+    // Prepend pages in reverse so page 1 is first
+    for (let i = pages.length - 1; i >= 0; i--) {
+      llmSMS.unshift(pages[i]);
+    }
+    // Cap total stored messages
+    while (llmSMS.length > 20) llmSMS.pop();
     activeSMSList = llmSMS;
     smsIndex      = 0;
 
@@ -186,7 +283,7 @@ Provide your SMS advisory now.`;
     nokiaOn = false;
     toggleNokia();
 
-    return { ok: true, message: formatted };
+    return { ok: true, message: pages[0] };
   } catch (e) {
     return { ok: false, error: e.message };
   }

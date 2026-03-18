@@ -21,6 +21,7 @@ window.addEventListener('keydown', e => {
   if (keys[e.code]) return; // ignore key-repeat
   keys[e.code] = true;
   if (e.code === 'KeyN') toggleNokia();
+  if (e.code === 'KeyR' && nokiaOn && typeof requestAnalysis === 'function') requestAnalysis();
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
 
@@ -49,6 +50,12 @@ function getGroundHeight(x, z) {
       z >= FARM_ORIGIN_Z && z <= FARM_ORIGIN_Z + FARM_ROWS * CELL_SIZE) {
     return FARM_SURFACE_Y;
   }
+
+  if (x >= FARM_TERRAIN_MIN_X && x <= FARM_TERRAIN_MAX_X &&
+      z >= FARM_TERRAIN_MIN_Z && z <= FARM_TERRAIN_MAX_Z) {
+    return FLAT_FARM_Y;
+  }
+
   return Math.sin(x * 0.05) * 0.8 + Math.cos(z * 0.04) * 0.6;
 }
 

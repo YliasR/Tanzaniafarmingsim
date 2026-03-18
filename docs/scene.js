@@ -18,6 +18,53 @@ const FARM_ORIGIN_Z = 10.0;
 const FLAT_FARM_Y   = 0.70;   // flattened plateau height for the farm area
 const FARM_BLEND    = 8;      // blend zone width (m) between plateau and natural terrain
 
+// Keep surrounding terrain low/smooth across all planned expansion plots
+// so purchased raised beds do not clip into taller natural ground.
+const FARM_TERRAIN_MIN_X = -7.5;
+const FARM_TERRAIN_MAX_X = 28.5;
+const FARM_TERRAIN_MIN_Z = 0.5;
+const FARM_TERRAIN_MAX_Z = 29.5;
+
+// Keep ambient world props out of buyable farmland footprints.
+const RESERVED_PLOT_AREAS = [
+  { x1: 7.5,  x2: 19.5, z1: 10.0, z2: 22.0 }, // east
+  { x1: -7.5, x2: 7.5,  z1: 22.0, z2: 29.5 }, // north
+  { x1: -7.5, x2: 7.5,  z1: 0.5,  z2: 9.5  }, // south
+  { x1: 7.5,  x2: 19.5, z1: 22.0, z2: 29.5 }, // riverside
+  { x1: 19.5, x2: 28.5, z1: 10.0, z2: 22.0 }, // far east
+];
+
+function moveOutOfReservedPlots(x, z, pad = 0.8) {
+  let nx = x;
+  let nz = z;
+
+  // Handle overlaps deterministically; max passes prevents accidental infinite loops.
+  for (let pass = 0; pass < 4; pass++) {
+    let changed = false;
+    for (const area of RESERVED_PLOT_AREAS) {
+      const insideX = nx >= area.x1 && nx <= area.x2;
+      const insideZ = nz >= area.z1 && nz <= area.z2;
+      if (!insideX || !insideZ) continue;
+
+      const leftDist   = Math.abs(nx - area.x1);
+      const rightDist  = Math.abs(area.x2 - nx);
+      const southDist  = Math.abs(nz - area.z1);
+      const northDist  = Math.abs(area.z2 - nz);
+      const minDist = Math.min(leftDist, rightDist, southDist, northDist);
+
+      if (minDist === leftDist) nx = area.x1 - pad;
+      else if (minDist === rightDist) nx = area.x2 + pad;
+      else if (minDist === southDist) nz = area.z1 - pad;
+      else nz = area.z2 + pad;
+
+      changed = true;
+    }
+    if (!changed) break;
+  }
+
+  return { x: nx, z: nz };
+}
+
 function _smoothstep(lo, hi, x) {
   const t = Math.max(0, Math.min(1, (x - lo) / (hi - lo)));
   return t * t * (3 - 2 * t);
@@ -31,6 +78,14 @@ function groundAt(x, z) {
   const inX = x >= FARM_ORIGIN_X && x <= FARM_ORIGIN_X + FARM_COLS * CELL_SIZE;
   const inZ = z >= FARM_ORIGIN_Z && z <= FARM_ORIGIN_Z + FARM_ROWS * CELL_SIZE;
   if (inX && inZ) return FARM_SURFACE_Y;
+
+  // Planned expansion footprint uses flattened terrain until purchased,
+  // then land.js overrides owned plots to FARM_SURFACE_Y.
+  if (x >= FARM_TERRAIN_MIN_X && x <= FARM_TERRAIN_MAX_X &&
+      z >= FARM_TERRAIN_MIN_Z && z <= FARM_TERRAIN_MAX_Z) {
+    return FLAT_FARM_Y;
+  }
+
   return Math.sin(x * 0.05) * 0.8 + Math.cos(z * 0.04) * 0.6;
 }
 camera.position.set(12, 8, 14);
@@ -75,9 +130,9 @@ scene.add(playerShadow);
 // --- Ground (Tanzanian red laterite earth with dry savanna) ---
 const groundGeo = new THREE.PlaneGeometry(600, 600, 100, 100);
 const posAttr = groundGeo.attributes.position;
-// Farm footprint extents for blend
-const _fx1 = FARM_ORIGIN_X - FARM_BLEND, _fx2 = FARM_ORIGIN_X + FARM_COLS * CELL_SIZE + FARM_BLEND;
-const _fz1 = FARM_ORIGIN_Z - FARM_BLEND, _fz2 = FARM_ORIGIN_Z + FARM_ROWS * CELL_SIZE + FARM_BLEND;
+// Farm + expansion footprint extents for blend
+const _fx1 = FARM_TERRAIN_MIN_X - FARM_BLEND, _fx2 = FARM_TERRAIN_MAX_X + FARM_BLEND;
+const _fz1 = FARM_TERRAIN_MIN_Z - FARM_BLEND, _fz2 = FARM_TERRAIN_MAX_Z + FARM_BLEND;
 for (let i = 0; i < posAttr.count; i++) {
   const lx = posAttr.getX(i), ly = posAttr.getY(i);
   // PlaneGeometry rotated -π/2 around X: worldX=lx, worldZ=-ly
@@ -86,12 +141,12 @@ for (let i = 0; i < posAttr.count; i++) {
   if (wx >= _fx1 && wx <= _fx2 && wz >= _fz1 && wz <= _fz2) {
     // Blend factor: 1 = full plateau, 0 = full natural terrain
     const bx = Math.min(
-      _smoothstep(_fx1, FARM_ORIGIN_X, wx),
-      _smoothstep(_fx2, FARM_ORIGIN_X + FARM_COLS * CELL_SIZE, wx)
+      _smoothstep(_fx1, FARM_TERRAIN_MIN_X, wx),
+      _smoothstep(_fx2, FARM_TERRAIN_MAX_X, wx)
     );
     const bz = Math.min(
-      _smoothstep(_fz1, FARM_ORIGIN_Z, wz),
-      _smoothstep(_fz2, FARM_ORIGIN_Z + FARM_ROWS * CELL_SIZE, wz)
+      _smoothstep(_fz1, FARM_TERRAIN_MIN_Z, wz),
+      _smoothstep(_fz2, FARM_TERRAIN_MAX_Z, wz)
     );
     const blend = Math.min(bx, bz);
     posAttr.setZ(i, natural * (1 - blend) + FLAT_FARM_Y * blend);
@@ -130,6 +185,8 @@ scene.add(ground);
 
 // --- Dry grass tufts scattered across savanna ---
 function createGrassTuft(x, z) {
+  const safe = moveOutOfReservedPlots(x, z, 0.9);
+  const gY = groundAt(safe.x, safe.z);
   const blades = 4 + Math.floor(Math.random() * 5);
   for (let i = 0; i < blades; i++) {
     const h = 0.3 + Math.random() * 0.5;
@@ -140,7 +197,11 @@ function createGrassTuft(x, z) {
         side: THREE.DoubleSide
       })
     );
-    blade.position.set(x + (Math.random()-0.5)*0.4, h/2, z + (Math.random()-0.5)*0.4);
+    blade.position.set(
+      safe.x + (Math.random() - 0.5) * 0.4,
+      gY + h / 2,
+      safe.z + (Math.random() - 0.5) * 0.4
+    );
     blade.rotation.y = Math.random() * Math.PI;
     blade.rotation.z = (Math.random()-0.5) * 0.3;
     scene.add(blade);
@@ -196,11 +257,12 @@ createHill(-90, -190, 38, 11, 0x8a9060);
 
 // --- Red rocks / boulders (laterite outcrops) ---
 function createRock(x, z, s) {
+  const safe = moveOutOfReservedPlots(x, z, 0.9);
   const rock = new THREE.Mesh(
     new THREE.DodecahedronGeometry(s, 0),
     new THREE.MeshLambertMaterial({ color: 0x8b4525 + Math.floor(Math.random() * 0x151515) })
   );
-  rock.position.set(x, groundAt(x, z) + s * 0.4, z);
+  rock.position.set(safe.x, groundAt(safe.x, safe.z) + s * 0.4, safe.z);
   rock.rotation.set(Math.random(), Math.random(), Math.random());
   rock.castShadow = true;
   scene.add(rock);
@@ -323,8 +385,10 @@ towerGroup.add(towerLight);
 scene.add(towerGroup);
 
 // --- Server building ---
+const SERVER_X = 24;
+const SERVER_Z = -6;
 const serverGroup = new THREE.Group();
-serverGroup.position.set(20, 0, 18);
+serverGroup.position.set(SERVER_X, groundAt(SERVER_X, SERVER_Z), SERVER_Z);
 
 const building = new THREE.Mesh(
   new THREE.BoxGeometry(4, 3, 3),
@@ -535,13 +599,42 @@ const shopGroup = new THREE.Group();
 const _shopX = 10, _shopZ = -6;
 shopGroup.position.set(_shopX, groundAt(_shopX, _shopZ), _shopZ);
 
-const shopWalls = new THREE.Mesh(
-  new THREE.BoxGeometry(4, 2.5, 3.5),
-  new THREE.MeshLambertMaterial({ color: 0xddcc88 })
-);
-shopWalls.position.y = 1.25;
-shopWalls.castShadow = true;
-shopGroup.add(shopWalls);
+// Walls built as separate panels to leave a door opening on +Z face
+const _shopWallMat = new THREE.MeshLambertMaterial({ color: 0xddcc88 });
+// Back wall (-Z)
+const shopBack = new THREE.Mesh(new THREE.BoxGeometry(4, 2.5, 0.12), _shopWallMat);
+shopBack.position.set(0, 1.25, -1.69);
+shopBack.castShadow = true;
+shopGroup.add(shopBack);
+// Left wall (-X)
+const shopLeft = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.5, 3.5), _shopWallMat);
+shopLeft.position.set(-1.94, 1.25, 0);
+shopLeft.castShadow = true;
+shopGroup.add(shopLeft);
+// Right wall (+X)
+const shopRight = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.5, 3.5), _shopWallMat);
+shopRight.position.set(1.94, 1.25, 0);
+shopRight.castShadow = true;
+shopGroup.add(shopRight);
+// Front wall (+Z) — two panels with doorway gap in center
+const shopFrontL = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.5, 0.12), _shopWallMat);
+shopFrontL.position.set(-1.3, 1.25, 1.69);
+shopGroup.add(shopFrontL);
+const shopFrontR = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.5, 0.12), _shopWallMat);
+shopFrontR.position.set(1.3, 1.25, 1.69);
+shopGroup.add(shopFrontR);
+// Lintel above doorway
+const shopLintel = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.35, 0.12), _shopWallMat);
+shopLintel.position.set(0, 2.33, 1.69);
+shopGroup.add(shopLintel);
+// Door frame
+const _shopFrameMat = new THREE.MeshLambertMaterial({ color: 0x5a3010 });
+const shopDoorFrameL = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.15, 0.14), _shopFrameMat);
+shopDoorFrameL.position.set(-0.73, 1.08, 1.69);
+shopGroup.add(shopDoorFrameL);
+const shopDoorFrameR = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.15, 0.14), _shopFrameMat);
+shopDoorFrameR.position.set(0.73, 1.08, 1.69);
+shopGroup.add(shopDoorFrameR);
 
 const shopRoof = new THREE.Mesh(
   new THREE.BoxGeometry(4.4, 0.1, 3.9),
@@ -627,6 +720,34 @@ for (const [cx, cz, col] of [[-1.4, 0, 0xddaa22], [0, 0, 0x44aa33], [1.4, 0, 0xc
   marketGroup.add(crate);
 }
 
+// Back display shelf (behind seller)
+const mktShelf = new THREE.Mesh(
+  new THREE.BoxGeometry(3.5, 0.08, 0.6),
+  new THREE.MeshLambertMaterial({ color: 0x5a3a10 })
+);
+mktShelf.position.set(0, 1.4, -1.2);
+marketGroup.add(mktShelf);
+// Woven baskets on shelf
+const basketMat = new THREE.MeshLambertMaterial({ color: 0xc8a850 });
+for (let i = 0; i < 4; i++) {
+  const basket = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.2, 0.25, 0.25, 6),
+    basketMat
+  );
+  basket.position.set(-1.2 + i * 0.8, 1.57, -1.2);
+  marketGroup.add(basket);
+}
+// Sacks on ground behind seller
+const mktSackMat = new THREE.MeshLambertMaterial({ color: 0xc8b888 });
+for (let i = 0; i < 3; i++) {
+  const sack = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.4, 0.4),
+    mktSackMat
+  );
+  sack.position.set(-1.0 + i * 1.0, 0.2, -1.4);
+  marketGroup.add(sack);
+}
+
 // SOKO sign
 const sokoCanvas = document.createElement('canvas');
 sokoCanvas.width = 200; sokoCanvas.height = 60;
@@ -650,13 +771,17 @@ const marketPos = new THREE.Vector3(_mktX, groundAt(_mktX, _mktZ) + 1.0, _mktZ);
 
 // --- Acacia trees (flat-topped, iconic Tanzania) ---
 function createAcacia(x, z, s) {
-  const gY = groundAt(x, z);
+  // Keep trunks + wide flat canopies away from buyable farmland.
+  const safe = moveOutOfReservedPlots(x, z, 4.6);
+  const xPos = safe.x;
+  const zPos = safe.z;
+  const gY = groundAt(xPos, zPos);
   const trunkH = 3 * s;
   const trunk = new THREE.Mesh(
     new THREE.CylinderGeometry(0.08 * s, 0.18 * s, trunkH, 6),
     new THREE.MeshLambertMaterial({ color: 0x5a3a1a })
   );
-  trunk.position.set(x, gY + trunkH / 2, z);
+  trunk.position.set(xPos, gY + trunkH / 2, zPos);
   trunk.castShadow = true;
   scene.add(trunk);
 
@@ -664,7 +789,7 @@ function createAcacia(x, z, s) {
     new THREE.CylinderGeometry(2.5 * s, 2.8 * s, 0.5 * s, 10),
     new THREE.MeshLambertMaterial({ color: 0x4a7a28 + Math.floor(Math.random() * 0x101000) })
   );
-  canopy.position.set(x, gY + trunkH + 0.2 * s, z);
+  canopy.position.set(xPos, gY + trunkH + 0.2 * s, zPos);
   canopy.castShadow = true;
   scene.add(canopy);
 
@@ -675,9 +800,9 @@ function createAcacia(x, z, s) {
       new THREE.MeshLambertMaterial({ color: 0x5a3a1a })
     );
     branch.position.set(
-      x + Math.cos(bAngle) * 0.5 * s,
+      xPos + Math.cos(bAngle) * 0.5 * s,
       gY + trunkH * 0.7,
-      z + Math.sin(bAngle) * 0.5 * s
+      zPos + Math.sin(bAngle) * 0.5 * s
     );
     branch.rotation.z = Math.cos(bAngle) * 0.5;
     branch.rotation.x = Math.sin(bAngle) * 0.5;
@@ -687,13 +812,17 @@ function createAcacia(x, z, s) {
 
 // --- Baobab trees (fat trunk, sparse crown) ---
 function createBaobab(x, z, s) {
-  const gY = groundAt(x, z);
+  // Keep bulky trunks/branches outside buyable farmland.
+  const safe = moveOutOfReservedPlots(x, z, 3.2);
+  const xPos = safe.x;
+  const zPos = safe.z;
+  const gY = groundAt(xPos, zPos);
   // Massive trunk
   const trunk = new THREE.Mesh(
     new THREE.CylinderGeometry(0.8 * s, 1.2 * s, 3.5 * s, 8),
     new THREE.MeshLambertMaterial({ color: 0x8a7a6a })
   );
-  trunk.position.set(x, gY + 1.75 * s, z);
+  trunk.position.set(xPos, gY + 1.75 * s, zPos);
   trunk.castShadow = true;
   scene.add(trunk);
 
@@ -706,9 +835,9 @@ function createBaobab(x, z, s) {
       new THREE.MeshLambertMaterial({ color: 0x7a6a5a })
     );
     branch.position.set(
-      x + Math.cos(bAngle) * 0.6 * s,
+      xPos + Math.cos(bAngle) * 0.6 * s,
       gY + 3.5 * s + bLen * 0.2,
-      z + Math.sin(bAngle) * 0.6 * s
+      zPos + Math.sin(bAngle) * 0.6 * s
     );
     branch.rotation.z = Math.cos(bAngle) * 0.7;
     branch.rotation.x = Math.sin(bAngle) * 0.7;
@@ -720,9 +849,9 @@ function createBaobab(x, z, s) {
         new THREE.MeshLambertMaterial({ color: 0x5a8a30 })
       );
       leafCluster.position.set(
-        x + Math.cos(bAngle) * (0.6 + bLen * 0.35) * s,
+        xPos + Math.cos(bAngle) * (0.6 + bLen * 0.35) * s,
         gY + 3.5 * s + bLen * 0.6,
-        z + Math.sin(bAngle) * (0.6 + bLen * 0.35) * s
+        zPos + Math.sin(bAngle) * (0.6 + bLen * 0.35) * s
       );
       scene.add(leafCluster);
     }
@@ -917,6 +1046,9 @@ function createChicken(x, z) {
 // --- Goats (derpy rectangles with horns, wandering the savanna) ---
 const goats = [];
 function createGoat(x, z) {
+  const safe = moveOutOfReservedPlots(x, z, 1.6);
+  const gx = safe.x;
+  const gz = safe.z;
   const g = new THREE.Group();
   // Body (long box)
   const body = new THREE.Mesh(
@@ -959,13 +1091,13 @@ function createGoat(x, z) {
   tail.position.set(-0.45, 0.75, 0);
   tail.rotation.z = -0.6;
   g.add(tail);
-  g.position.set(x, groundAt(x, z), z);
+  g.position.set(gx, groundAt(gx, gz), gz);
   g.rotation.y = Math.random() * Math.PI * 2;
   g.castShadow = true;
   scene.add(g);
   goats.push({
     mesh: g,
-    baseX: x, baseZ: z,
+    baseX: gx, baseZ: gz,
     wanderAngle: Math.random() * Math.PI * 2,
     wanderSpeed: 0.003 + Math.random() * 0.005,
     wanderRadius: 2 + Math.random() * 3
@@ -1293,7 +1425,7 @@ const sendPath = [
   new THREE.Vector3(20, 15, -15),
 ];
 const recvPath = [
-  new THREE.Vector3(20, 3, 18),
+  new THREE.Vector3(serverGroup.position.x, serverGroup.position.y + 3, serverGroup.position.z),
   new THREE.Vector3(20, 15, -15),
   new THREE.Vector3(0, 10, 0),
   new THREE.Vector3(-18, 3, 12),
@@ -1317,6 +1449,203 @@ function getPointOnPath(path, t) {
 }
 
 // ============================================================
+// NPCs — low-poly humanoid builder + instances
+// ============================================================
+const npcs = []; // { mesh, baseY, idlePhase, role }
+
+function createNPC(options) {
+  const {
+    x, z, facing = 0,
+    skinColor = 0x8d5524, shirtColor = 0x2266aa, pantsColor = 0x333355,
+    hatColor = null, role = 'villager'
+  } = options;
+
+  const g = new THREE.Group();
+  const skinMat  = new THREE.MeshLambertMaterial({ color: skinColor });
+  const shirtMat = new THREE.MeshLambertMaterial({ color: shirtColor });
+  const pantsMat = new THREE.MeshLambertMaterial({ color: pantsColor });
+  const shoeMat  = new THREE.MeshLambertMaterial({ color: 0x222222 });
+
+  // Head
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.35, 0.32), skinMat);
+  head.position.y = 1.62;
+  head.name = 'head';
+  g.add(head);
+
+  // Eyes (two small dark cubes on front face)
+  const eyeMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+  for (const s of [-0.07, 0.07]) {
+    const eye = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.02), eyeMat);
+    eye.position.set(s, 1.66, 0.17);
+    g.add(eye);
+  }
+
+  // Hair / hat
+  if (hatColor) {
+    const hat = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.22, 0.24, 0.12, 8),
+      new THREE.MeshLambertMaterial({ color: hatColor })
+    );
+    hat.position.y = 1.84;
+    g.add(hat);
+    const brim = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.32, 0.32, 0.03, 8),
+      new THREE.MeshLambertMaterial({ color: hatColor })
+    );
+    brim.position.y = 1.79;
+    g.add(brim);
+  } else {
+    const hair = new THREE.Mesh(
+      new THREE.BoxGeometry(0.34, 0.12, 0.34),
+      new THREE.MeshLambertMaterial({ color: 0x1a1a1a })
+    );
+    hair.position.y = 1.82;
+    g.add(hair);
+  }
+
+  // Torso
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.55, 0.26), shirtMat);
+  torso.position.y = 1.17;
+  g.add(torso);
+
+  // Arms
+  for (const s of [-1, 1]) {
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.50, 0.14), shirtMat);
+    arm.position.set(s * 0.30, 1.17, 0);
+    arm.name = s < 0 ? 'armL' : 'armR';
+    g.add(arm);
+    // Hands
+    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.12, 0.10), skinMat);
+    hand.position.set(s * 0.30, 0.88, 0);
+    g.add(hand);
+  }
+
+  // Legs
+  for (const s of [-1, 1]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.50, 0.18), pantsMat);
+    leg.position.set(s * 0.12, 0.60, 0);
+    g.add(leg);
+    // Shoes
+    const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.10, 0.24), shoeMat);
+    shoe.position.set(s * 0.12, 0.30, 0.03);
+    g.add(shoe);
+  }
+
+  const py = groundAt(x, z);
+  g.position.set(x, py, z);
+  g.rotation.y = facing;
+
+  scene.add(g);
+  const npcData = { mesh: g, baseY: py, idlePhase: Math.random() * Math.PI * 2, role };
+  npcs.push(npcData);
+  return npcData;
+}
+
+// ---- Shop interior (shelves, goods, floor inside the Duka) ----
+(function buildShopInterior() {
+  const shelfMat = new THREE.MeshLambertMaterial({ color: 0x6b4a1a });
+  const floorMat = new THREE.MeshLambertMaterial({ color: 0x8a7a5a });
+
+  // Floor inside shop (visible through door)
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.05, 3.3), floorMat);
+  floor.position.set(0, 0.03, 0);
+  shopGroup.add(floor);
+
+  // Back wall shelves (3 tiers)
+  for (let i = 0; i < 3; i++) {
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.06, 0.4), shelfMat);
+    shelf.position.set(0, 0.6 + i * 0.65, -1.4);
+    shopGroup.add(shelf);
+
+    // Goods on shelves — colored boxes
+    const colors = [0xdd4422, 0x22aa44, 0xddaa22, 0x2266cc, 0xcc44aa];
+    const count = 4 + Math.floor(Math.random() * 3);
+    for (let j = 0; j < count; j++) {
+      const w = 0.15 + Math.random() * 0.15;
+      const h = 0.15 + Math.random() * 0.2;
+      const good = new THREE.Mesh(
+        new THREE.BoxGeometry(w, h, 0.18),
+        new THREE.MeshLambertMaterial({ color: colors[j % colors.length] })
+      );
+      good.position.set(-1.2 + j * 0.45 + (Math.random() - 0.5) * 0.1, 0.63 + i * 0.65 + h / 2, -1.3);
+      shopGroup.add(good);
+    }
+  }
+
+  // Side shelves (left wall)
+  for (let i = 0; i < 2; i++) {
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.06, 2.5), shelfMat);
+    shelf.position.set(-1.7, 0.8 + i * 0.7, 0);
+    shopGroup.add(shelf);
+
+    // Sacks / bags on side shelves
+    const sackMat = new THREE.MeshLambertMaterial({ color: 0xc8b888 });
+    for (let j = 0; j < 3; j++) {
+      const sack = new THREE.Mesh(
+        new THREE.BoxGeometry(0.3, 0.25, 0.35),
+        sackMat
+      );
+      sack.position.set(-1.65, 0.83 + i * 0.7 + 0.125, -0.8 + j * 0.8);
+      shopGroup.add(sack);
+    }
+  }
+
+  // Goods on counter (front display)
+  const crateMat = new THREE.MeshLambertMaterial({ color: 0x44aa33 });
+  for (let i = 0; i < 3; i++) {
+    const crate = new THREE.Mesh(
+      new THREE.BoxGeometry(0.5, 0.2, 0.2),
+      new THREE.MeshLambertMaterial({ color: [0xddaa22, 0x44aa33, 0xcc4422][i] })
+    );
+    crate.position.set(-0.7 + i * 0.7, 1.26, 1.8);
+    shopGroup.add(crate);
+  }
+
+  // Hanging items from ceiling (dried goods / lantern)
+  const lanternMat = new THREE.MeshLambertMaterial({ color: 0xaaaa44 });
+  const lantern = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.2, 0.15), lanternMat);
+  lantern.position.set(0.8, 2.2, 0.5);
+  shopGroup.add(lantern);
+  const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.3, 4),
+    new THREE.MeshLambertMaterial({ color: 0x333333 }));
+  wire.position.set(0.8, 2.4, 0.5);
+  shopGroup.add(wire);
+})();
+
+// ---- Shopkeeper NPC (behind counter, facing +Z toward customers) ----
+const shopkeeperNPC = createNPC({
+  x: _shopX, z: _shopZ + 0.8,
+  facing: 0,
+  skinColor: 0x8d5524,
+  shirtColor: 0x228844,
+  pantsColor: 0x3a3a2a,
+  hatColor: null,
+  role: 'shopkeeper',
+});
+
+// ---- Market seller NPC (behind table, facing +Z) ----
+const marketNPC = createNPC({
+  x: _mktX, z: _mktZ - 1.0,
+  facing: Math.PI,
+  skinColor: 0x6b3a1a,
+  shirtColor: 0xcc6622,
+  pantsColor: 0x2a2a3a,
+  hatColor: 0x8a6a2a,
+  role: 'marketSeller',
+});
+
+// ---- Neighbor NPC near the house (for future quests/dialogue) ----
+const neighborNPC = createNPC({
+  x: _hX + 6.5, z: _hZ + 1.5,
+  facing: -Math.PI * 0.3,
+  skinColor: 0x7a4a18,
+  shirtColor: 0xaa2233,
+  pantsColor: 0x2a2a4a,
+  hatColor: null,
+  role: 'neighbor',
+});
+
+// ============================================================
 // Building collision boxes (AABB, XZ plane)
 // Used by controls.js updatePlayer()
 // ============================================================
@@ -1328,12 +1657,14 @@ const worldColliders = [
 ];
 
 for (const [x, z, s] of ACACIA_TREE_POSITIONS) {
+  const safe = moveOutOfReservedPlots(x, z, 4.6);
   const r = 0.6 * s;
-  worldColliders.push({ x1: x - r, x2: x + r, z1: z - r, z2: z + r, name: 'acacia' });
+  worldColliders.push({ x1: safe.x - r, x2: safe.x + r, z1: safe.z - r, z2: safe.z + r, name: 'acacia' });
 }
 for (const [x, z, s] of BAOBAB_TREE_POSITIONS) {
+  const safe = moveOutOfReservedPlots(x, z, 3.2);
   const r = 0.9 * s;
-  worldColliders.push({ x1: x - r, x2: x + r, z1: z - r, z2: z + r, name: 'baobab' });
+  worldColliders.push({ x1: safe.x - r, x2: safe.x + r, z1: safe.z - r, z2: safe.z + r, name: 'baobab' });
 }
 
 // Sky dome background is handled above — day/night tints it in app.js
