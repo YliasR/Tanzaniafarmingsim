@@ -20,6 +20,20 @@ const keys = {};
 window.addEventListener('keydown', e => {
   if (keys[e.code]) return; // ignore key-repeat
   keys[e.code] = true;
+
+  // ESC → pause menu (only when in-game, not on main menu)
+  if (e.code === 'Escape') {
+    const menuHidden = document.getElementById('menu-overlay').classList.contains('hidden');
+    if (menuHidden && typeof gamePaused !== 'undefined') {
+      if (gamePaused) {
+        resumeGame();
+      } else {
+        pauseGame();
+      }
+    }
+    return;
+  }
+
   if (e.code === 'KeyN') toggleNokia();
   if (e.code === 'KeyR' && nokiaOn && typeof requestAnalysis === 'function') requestAnalysis();
 });
@@ -29,8 +43,10 @@ window.addEventListener('keyup', e => { keys[e.code] = false; });
 let pointerLocked = false;
 
 container.addEventListener('click', () => {
-  // Only request lock when the info overlay is already dismissed
-  if (!pointerLocked && document.getElementById('menu-overlay').classList.contains('hidden')) {
+  // Only request lock when overlays are dismissed and game is not paused
+  if (!pointerLocked &&
+      document.getElementById('menu-overlay').classList.contains('hidden') &&
+      (typeof gamePaused === 'undefined' || !gamePaused)) {
     container.requestPointerLock();
   }
 });
@@ -61,6 +77,7 @@ function getGroundHeight(x, z) {
 
 // ---- Per-frame player update ----
 function updatePlayer(dt) {
+  if (typeof gamePaused !== 'undefined' && gamePaused) return;
   const speed  = (keys['ShiftLeft'] || keys['ShiftRight']) ? SPRINT_SPEED : WALK_SPEED;
   const cosY   = Math.cos(player.yaw);
   const sinY   = Math.sin(player.yaw);

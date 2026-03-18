@@ -158,6 +158,7 @@ function updateInteractionTips() {
 
 window.addEventListener('keydown', e => {
   if (!document.getElementById('menu-overlay').classList.contains('hidden')) return;
+  if (gamePaused) return;
 
   if (e.code === 'KeyE') {
     // Close open panels first
@@ -215,9 +216,10 @@ function animate() {
   requestAnimationFrame(animate);
 
   const now = performance.now();
-  const dt  = Math.min((now - lastTimestamp) / 1000, 0.05); // cap at 50 ms
+  const rawDt = Math.min((now - lastTimestamp) / 1000, 0.05); // cap at 50 ms
   lastTimestamp = now;
-  time         += 0.016; // fixed step for animation cycles
+  const dt = gamePaused ? 0 : rawDt;
+  if (!gamePaused) time += 0.016; // fixed step for animation cycles
 
   // ---- First person camera ----
   updatePlayer(dt);
@@ -442,9 +444,40 @@ function showPage(name) {
   document.getElementById('page-' + name).classList.remove('hidden');
 }
 
+let gamePaused = false;
+
 function startGame() {
   document.getElementById('menu-overlay').classList.add('hidden');
+  document.getElementById('pause-overlay').classList.add('hidden');
+  gamePaused = false;
   container.requestPointerLock();
+}
+
+function pauseGame() {
+  if (gamePaused) return;
+  gamePaused = true;
+  document.exitPointerLock();
+  document.getElementById('pause-overlay').classList.remove('hidden');
+}
+
+function resumeGame() {
+  gamePaused = false;
+  document.getElementById('pause-overlay').classList.add('hidden');
+  container.requestPointerLock();
+}
+
+function returnToMenu() {
+  gamePaused = false;
+  document.getElementById('pause-overlay').classList.add('hidden');
+  document.getElementById('menu-overlay').classList.remove('hidden');
+  showPage('title');
+  document.exitPointerLock();
+}
+
+function exitGame() {
+  // Save before exiting
+  if (typeof saveGame === 'function') saveGame();
+  window.close();
 }
 
 function isHardModeEnabled() {
