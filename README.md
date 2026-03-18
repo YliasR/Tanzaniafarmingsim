@@ -147,4 +147,4 @@ All 3D assets are procedurally generated — no external models or textures requ
 
 This project is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 
-You're free to fork, modify, and redistribute — but you **must give credit**, share under the same license, and **may not sell it** without permission. For commercial licensing, contact [MysticFox on GitHub](https://github.com/AiStudioMysticFox).
+You're free to fork, modify, and redistribute — but you **must give credit**, share under the same license, and **may not sell it** without permission. For commercial licensing, contact [Me via mail](mailto:admin@mystic.gay).
