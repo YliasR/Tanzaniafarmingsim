@@ -113,6 +113,7 @@ function updateClock() {
 // ============================================================
 function updateInteractionTips() {
   if (typeof shopOpen !== 'undefined' && (shopOpen || marketOpen)) return;
+  if (typeof questDialogOpen !== 'undefined' && questDialogOpen) return;
   const tipEl = document.getElementById('farm-tooltip');
 
   // Shop proximity
@@ -159,6 +160,8 @@ function updateInteractionTips() {
       }
     }
   }
+  // Nothing nearby — hide tooltip
+  if (tipEl) tipEl.style.display = 'none';
 }
 
 window.addEventListener('keydown', e => {
@@ -166,6 +169,8 @@ window.addEventListener('keydown', e => {
   if (gamePaused) return;
 
   if (e.code === 'KeyE') {
+    // Close quest dialog
+    if (typeof questDialogOpen !== 'undefined' && questDialogOpen) { closeQuestDialog(); return; }
     // Close open panels first
     if (typeof shopOpen !== 'undefined' && shopOpen)   { closeShop();   return; }
     if (typeof marketOpen !== 'undefined' && marketOpen) { closeMarket(); return; }

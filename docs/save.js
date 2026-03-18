@@ -58,6 +58,12 @@ function saveGame() {
       sensorNode:   UPGRADES.sensorNode.built,
       houseUpgrade: UPGRADES.houseUpgrade.built,
     },
+    // Quests
+    quests: {
+      completed:    typeof questCompleted !== 'undefined' ? [...questCompleted] : [],
+      activeId:     typeof activeQuestId !== 'undefined' ? activeQuestId : null,
+      progress:     typeof questProgress !== 'undefined' ? { ...questProgress } : {},
+    },
   };
 
   try {
@@ -190,6 +196,16 @@ function loadGame() {
     UPGRADES.sensorNode.built   = data.upgrades.sensorNode ?? false;
     UPGRADES.houseUpgrade.built = data.upgrades.houseUpgrade ?? false;
     rebuildUpgrades();
+  }
+
+  // ---- Quests ----
+  if (data.quests) {
+    if (typeof questCompleted !== 'undefined') {
+      questCompleted.length = 0;
+      (data.quests.completed || []).forEach(id => questCompleted.push(id));
+      activeQuestId = data.quests.activeId || null;
+      Object.assign(questProgress, data.quests.progress || {});
+    }
   }
 
   // Restore planted cells (must be after land plots are added so indices exist)

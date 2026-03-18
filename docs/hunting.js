@@ -328,6 +328,7 @@ function updateHunting(dt) {
 
     if (d2D < (loot.pickupRadius || LOOT_PICKUP_RADIUS)) {
       inventory[loot.type]++;
+      if (loot.type === 'meat' && typeof onMeatCollected === 'function') onMeatCollected(1);
       scene.remove(loot.mesh);
       lootPiles.splice(i, 1);
       updateInventoryHUD();

@@ -3,7 +3,7 @@
 // ============================================================
 
 // Neighbor NPC position (mirrors scene.js: _hX + 6.5, _hZ + 1.5)
-const questNPCPos = new THREE.Vector3(-11.5, 0, 13.5);
+const questNPCPos = new THREE.Vector3(-11.5, groundAt(-11.5, 13.5) + 1.0, 13.5);
 
 // ---- Quest definitions ----
 const QUESTS = [
@@ -233,15 +233,15 @@ function closeQuestDialog() {
 
 // ---- Progress tracking hooks (called from other systems) ----
 function onCropHarvested(seedType) {
+  // Always track crop diversity (even before that quest is active)
+  if (!questProgress.all_crops_seen) questProgress.all_crops_seen = [0, 0, 0, 0, 0];
+  questProgress.all_crops_seen[seedType] = 1;
+
   if (!activeQuestId) return;
 
   if (activeQuestId === 'first_harvest' && seedType === 0) {
     questProgress.first_harvest = (questProgress.first_harvest || 0) + 1;
   }
-
-  // Track unique crop types harvested
-  if (!questProgress.all_crops_seen) questProgress.all_crops_seen = [0, 0, 0, 0, 0];
-  questProgress.all_crops_seen[seedType] = 1;
 }
 
 function onEggCollected(count) {
