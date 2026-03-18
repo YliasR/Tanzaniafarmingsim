@@ -717,3 +717,108 @@ kbd {
   border-color: #ff4444aa;
   color: #ff6666;
 }
+
+/* ============================================================
+   Quest tracker HUD (top-right, below hunt indicator)
+   ============================================================ */
+#quest-tracker {
+  position: absolute;
+  top: 90px;
+  right: 20px;
+  z-index: 10;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid #ffd70040;
+  border-radius: 8px;
+  padding: 10px 14px;
+  width: 200px;
+  zoom: var(--ui-scale);
+}
+.qt-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: #ffd700;
+  margin-bottom: 6px;
+}
+.qt-desc {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  color: #bbb;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.qt-bar-bg {
+  height: 6px;
+  background: #222;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+.qt-bar-fill {
+  height: 100%;
+  background: #7cfc00;
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+.qt-progress {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: #7cfc00;
+  text-align: right;
+}
+
+/* ============================================================
+   Quest notification toast
+   ============================================================ */
+#quest-notification {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  color: #ffd700;
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid #ffd70066;
+  border-radius: 8px;
+  padding: 14px 28px;
+  z-index: 150;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s;
+  text-align: center;
+  white-space: nowrap;
+  zoom: var(--ui-scale);
+}
+#quest-notification.visible {
+  opacity: 1;
+}
+
+/* ============================================================
+   Quest dialog
+   ============================================================ */
+.qd-desc {
+  font-size: 13px;
+  color: #ccc;
+  line-height: 1.7;
+  margin-bottom: 10px;
+}
+.qd-hint {
+  font-size: 11px;
+  color: #888;
+  line-height: 1.6;
+  margin-bottom: 10px;
+  font-style: italic;
+}
+.qd-reward {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: #ffd700;
+  margin-top: 8px;
+}
+.qd-progress {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: #7cfc00;
+  margin-top: 8px;
+}

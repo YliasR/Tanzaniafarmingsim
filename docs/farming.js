@@ -490,6 +490,7 @@ window.addEventListener('keydown', e => {
     } else if (cell.stage === 3) {
       // Harvest
       cropInventory[cell.seedType]++;
+      if (typeof onCropHarvested === 'function') onCropHarvested(cell.seedType);
       harvestCell(hoveredCell);
       if (typeof updateMoneyHUD === 'function') updateMoneyHUD();
     }
@@ -536,6 +537,7 @@ function updateAnimalProduction(dt) {
     if (eggCooldown <= 0) {
       const laid = ownedChickens;
       animalProducts.eggs += laid;
+      if (typeof onEggCollected === 'function') onEggCollected(laid);
       eggCooldown = EGG_INTERVAL;
       _flashAnimalProduct('eggs', laid);
     }

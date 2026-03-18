@@ -133,6 +133,11 @@ function updateInteractionTips() {
       return;
     }
   }
+  // Quest NPC (neighbor)
+  if (typeof questNPCPos !== 'undefined' && player.pos.distanceTo(questNPCPos) < 4.0) {
+    if (tipEl) { tipEl.textContent = '[E] Talk to Neighbor'; tipEl.style.display = 'block'; }
+    return;
+  }
   // Feed troughs
   if (typeof feedTroughs !== 'undefined' && fencingOwned) {
     for (const t of feedTroughs) {
@@ -179,6 +184,10 @@ window.addEventListener('keydown', e => {
       const tipEl = document.getElementById('farm-tooltip');
       if (tipEl) tipEl.style.display = 'none';
       return;
+    }
+    // Talk to quest NPC
+    if (typeof questNPCPos !== 'undefined' && player.pos.distanceTo(questNPCPos) < 4.0) {
+      openQuestDialog(); return;
     }
     // Fill feed trough
     if (typeof feedTroughs !== 'undefined' && fencingOwned) {
@@ -321,6 +330,10 @@ function animate() {
 
   // ---- Auto SMS analysis (once per game day) ----
   if (typeof checkAutoAnalysis === 'function') checkAutoAnalysis();
+
+  // ---- Quests ----
+  if (typeof checkQuestCompletion === 'function') checkQuestCompletion();
+  if (typeof updateQuestHUD === 'function') updateQuestHUD();
 
   // ---- Scene animations ----
   rpiGroup.rotation.z = Math.sin(time * 0.8) * 0.01;

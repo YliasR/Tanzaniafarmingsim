@@ -140,6 +140,18 @@
   </div>
 </div>
 
+<!-- ===== QUEST DIALOG ===== -->
+<div id="quest-dialog" class="trade-overlay hidden">
+  <div class="trade-card" style="width:400px">
+    <h2 class="trade-title" id="qd-title"></h2>
+    <div id="qd-body"></div>
+    <div class="menu-buttons" style="margin-top:20px">
+      <button class="menu-btn primary" id="qd-action">ACCEPT</button>
+      <button class="menu-btn" onclick="closeQuestDialog()">[E] CLOSE</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== SHOP OVERLAY ===== -->
 <div id="shop-overlay" class="trade-overlay hidden">
   <div class="trade-card">
@@ -191,6 +203,12 @@
   </div>
 
   <div id="save-indicator">SAVED</div>
+
+  <!-- Quest tracker HUD -->
+  <div id="quest-tracker" style="display:none"></div>
+
+  <!-- Quest completion toast -->
+  <div id="quest-notification"></div>
 
   <!-- 2D Nokia phone widget -->
   <!-- Seed toolbar -->
@@ -253,6 +271,7 @@
 <script src="upgrades.js"></script>
 <script src="weather.js"></script>
 <script src="save.js"></script>
+<script src="quests.js"></script>
 <script src="sms.js"></script>
 <script src="app.js"></script>
 </body>
