@@ -1,0 +1,131 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+
+permissions:
+  contents: write
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get.outputs.version }}
+      changed: ${{ steps.check.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Get version from package.json
+        id: get
+        run: echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+
+      - name: Check if version actually changed
+        id: check
+        run: |
+          NEW=$(node -p "require('./package.json').version")
+          OLD=$(git show HEAD~1:package.json 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).version" 2>/dev/null || echo "")
+          if [ "$NEW" != "$OLD" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Version changed: $OLD -> $NEW"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Version unchanged ($NEW), skipping build"
+          fi
+
+  build-windows:
+    needs: check-version
+    if: needs.check-version.outputs.changed == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build Windows installer
+        run: npm run build:win
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: release/*.exe
+
+  build-linux:
+    needs: check-version
+    if: needs.check-version.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build Linux packages
+        run: npm run build:linux
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: |
+            release/*.AppImage
+            release/*.deb
+
+  release:
+    needs: [check-version, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.check-version.outputs.version }}
+          name: v${{ needs.check-version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            artifacts/windows-build/*.exe
+            artifacts/linux-build/*.AppImage
+            artifacts/linux-build/*.deb
+
+  upload-itch:
+    needs: [check-version, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    if: vars.ITCH_GAME != ''
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Install Butler
+        run: |
+          curl -L -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip butler.zip
+          chmod +x butler
+          ./butler -V
+
+      - name: Upload Windows build to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: ./butler push artifacts/windows-build/ ${{ vars.ITCH_GAME }}:windows --userversion ${{ needs.check-version.outputs.version }}
+
+      - name: Upload Linux build to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: ./butler push artifacts/linux-build/ ${{ vars.ITCH_GAME }}:linux --userversion ${{ needs.check-version.outputs.version }}

@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;700&display=swap');
 
+:root { --ui-scale: 1; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
@@ -27,6 +28,7 @@ canvas { display: block; }
   pointer-events: none;
   z-index: 5;
   box-shadow: 0 0 4px rgba(0,0,0,0.8);
+  zoom: var(--ui-scale);
 }
 
 /* HUD */
@@ -35,6 +37,7 @@ canvas { display: block; }
   top: 20px; left: 20px;
   z-index: 10;
   pointer-events: none;
+  zoom: var(--ui-scale);
 }
 #hud h1 {
   font-family: 'Press Start 2P', monospace;
@@ -96,6 +99,7 @@ canvas { display: block; }
   cursor: pointer;
   transition: transform 0.2s;
   user-select: none;
+  zoom: var(--ui-scale);
 }
 #nokia-container:hover { transform: scale(1.04); }
 
@@ -240,6 +244,7 @@ canvas { display: block; }
   box-shadow:
     0 0 60px rgba(124,252,0,0.04),
     0 24px 64px rgba(0,0,0,0.6);
+  zoom: var(--ui-scale);
 }
 .menu-card.wide { width: 540px; }
 
@@ -438,6 +443,7 @@ kbd {
   transition: opacity 0.4s;
   pointer-events: none;
   z-index: 10;
+  zoom: var(--ui-scale);
 }
 #save-indicator.visible { opacity: 1; }
 
@@ -453,6 +459,7 @@ kbd {
   gap: 6px;
   z-index: 10;
   pointer-events: none;
+  zoom: var(--ui-scale);
 }
 .seed-slot {
   width: 60px;
@@ -506,6 +513,7 @@ kbd {
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
+  zoom: var(--ui-scale);
 }
 .hunt-label {
   font-family: 'Press Start 2P', monospace;
@@ -553,6 +561,7 @@ kbd {
   z-index: 10;
   pointer-events: none;
   white-space: nowrap;
+  zoom: var(--ui-scale);
 }
 
 /* ============================================================
@@ -580,6 +589,7 @@ kbd {
   max-height: 88vh;
   overflow-y: auto;
   box-shadow: 0 0 60px rgba(124,252,0,0.04), 0 24px 64px rgba(0,0,0,0.6);
+  zoom: var(--ui-scale);
 }
 .trade-card::-webkit-scrollbar { width: 4px; }
 .trade-card::-webkit-scrollbar-thumb { background: #7cfc0033; border-radius: 2px; }
@@ -669,6 +679,7 @@ kbd {
   overflow-y: auto;
   z-index: 50;
   pointer-events: auto;
+  zoom: var(--ui-scale);
 }
 .inv-header {
   font-family: 'Press Start 2P', monospace;

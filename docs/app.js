@@ -493,9 +493,12 @@ function saveSettings() {
   const hardMode = !!(hardModeEl && hardModeEl.checked);
   const devMode  = !!(devModeEl && devModeEl.checked);
   const wasDevMode = localStorage.getItem('farmsim_dev_mode') === '1';
+  const uiScale = document.getElementById('uiscale-slider').value;
   localStorage.setItem('farmsim_openrouter_key', key);
   localStorage.setItem('farmsim_hard_mode', hardMode ? '1' : '0');
   localStorage.setItem('farmsim_dev_mode', devMode ? '1' : '0');
+  localStorage.setItem('farmsim_ui_scale', uiScale);
+  applyUIScale(parseFloat(uiScale));
   if (devMode && !wasDevMode) {
     // Turning dev mode ON — stash real money, then grant max
     localStorage.setItem('farmsim_pre_dev_money', String(playerMoney));
@@ -525,6 +528,23 @@ function toggleApiKeyVisibility() {
   }
 }
 
+// UI scale
+function applyUIScale(scale) {
+  document.documentElement.style.setProperty('--ui-scale', scale);
+}
+
+// Live preview when dragging the slider
+(function initUIScaleSlider() {
+  const slider = document.getElementById('uiscale-slider');
+  const label  = document.getElementById('uiscale-value');
+  if (!slider || !label) return;
+  slider.addEventListener('input', () => {
+    const v = parseFloat(slider.value);
+    label.textContent = v.toFixed(1) + 'x';
+    applyUIScale(v);
+  });
+})();
+
 // Load persisted settings into the input on startup
 (function loadSettings() {
   const key = localStorage.getItem('farmsim_openrouter_key') || '';
@@ -533,9 +553,15 @@ function toggleApiKeyVisibility() {
   const el  = document.getElementById('apikey-input');
   const hardModeEl = document.getElementById('hardmode-toggle');
   const devModeEl  = document.getElementById('devmode-toggle');
+  const uiScale = parseFloat(localStorage.getItem('farmsim_ui_scale')) || 1;
+  const uiSlider = document.getElementById('uiscale-slider');
+  const uiLabel  = document.getElementById('uiscale-value');
   if (el) el.value = key;
   if (hardModeEl) hardModeEl.checked = hardMode;
   if (devModeEl)  devModeEl.checked = devMode;
+  if (uiSlider) uiSlider.value = uiScale;
+  if (uiLabel)  uiLabel.textContent = uiScale.toFixed(1) + 'x';
+  applyUIScale(uiScale);
   if (devMode) {
     // On load with dev mode active, stash current money if not already stashed, then grant max
     if (localStorage.getItem('farmsim_pre_dev_money') == null) {

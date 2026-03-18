@@ -66,6 +66,16 @@
         </div>
       </div>
 
+      <div class="setting-group">
+        <label class="setting-label">UI Scale</label>
+        <div class="input-row" style="align-items:center; gap:12px">
+          <input type="range" id="uiscale-slider" min="0.8" max="2.0" step="0.1" value="1"
+                 style="flex:1; accent-color:#7cfc00;">
+          <span id="uiscale-value" class="setting-hint" style="min-width:36px; text-align:center; margin-top:0;">1.0x</span>
+        </div>
+        <p class="setting-hint">Scale up for high-res monitors (1440p / 4K). Default: 1.0x</p>
+      </div>
+
       <div class="menu-buttons">
         <button class="menu-btn primary" onclick="saveSettings()">SAVE SETTINGS</button>
         <button class="menu-btn danger" onclick="resetGame()">RESET GAME</button>
