@@ -10,6 +10,9 @@ files:
   - docs/**/*
   - build/icon.png
 
+asarUnpack:
+  - docs/assets/**/*
+
 win:
   target:
     - target: nsis
