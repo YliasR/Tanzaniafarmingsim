@@ -48,8 +48,8 @@ function createWindow() {
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://openrouter.ai; " +
-          "connect-src 'self' https://openrouter.ai https://api.openrouter.ai; " +
+          "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://openrouter.ai; " +
+          "connect-src 'self' file: https://openrouter.ai https://api.openrouter.ai; " +
           "img-src 'self' data: blob:; " +
           "font-src 'self';"
         ],
