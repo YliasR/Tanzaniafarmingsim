@@ -25,7 +25,31 @@ const LOOT_NEAR_RADIUS = 4.2;
 // ============================================================
 const wildAnimals = [];
 
-function createImpala(x, z) {
+function createWildRoamState(baseX, baseZ, radius, speedMin, speedMax, pauseMin = 0.4, pauseMax = 1.8) {
+  return {
+    baseX,
+    baseZ,
+    roamRadius: radius,
+    moveSpeed: speedMin + Math.random() * (speedMax - speedMin),
+    pauseTimer: Math.random() * pauseMax,
+    pauseMin,
+    pauseMax,
+    targetX: baseX + (Math.random() - 0.5) * radius,
+    targetZ: baseZ + (Math.random() - 0.5) * radius,
+  };
+}
+
+function createWildAnimState(model) {
+  const clips = (model && model.userData && Array.isArray(model.userData.clips)) ? model.userData.clips : [];
+  if (!clips.length) return null;
+  const mixer = new THREE.AnimationMixer(model);
+  const clip = clips.find((c) => /(walk|run|idle|anim)/.test((c.name || '').toLowerCase())) || clips[0];
+  const action = mixer.clipAction(clip);
+  action.play();
+  return { mixer, clipName: clip.name || 'clip_0' };
+}
+
+function createImpalaFallback(x, z) {
   const g    = new THREE.Group();
   const col  = 0xc8903a;
   const mat  = new THREE.MeshLambertMaterial({ color: col });
@@ -98,10 +122,42 @@ function createImpala(x, z) {
     wanderSpeed: 0.005 + Math.random() * 0.004,
     walkSpeed:   2.8,
     fleeSpeed:   12,
+    roam:        createWildRoamState(x, z, 18, 2.0, 3.2, 0.4, 1.6),
+    anim:        null,
   });
 }
 
-function createGuineaFowl(x, z) {
+function createImpala(x, z) {
+  const spawn = (typeof window.spawnWorldModel === 'function')
+    ? window.spawnWorldModel(window.MODEL_PATHS.animals.impala, {
+        x,
+        z,
+        targetHeight: 1.35,
+      })
+    : Promise.resolve(null);
+
+  spawn.then((model) => {
+    if (!model) {
+      createImpalaFallback(x, z);
+      return;
+    }
+
+    wildAnimals.push({
+      mesh:        model,
+      type:        'impala',
+      radius:      0.9,
+      alive:       true,
+      wanderAngle: Math.random() * Math.PI * 2,
+      wanderSpeed: 0.005 + Math.random() * 0.004,
+      walkSpeed:   2.8,
+      fleeSpeed:   12,
+      roam:        createWildRoamState(x, z, 18, 2.0, 3.2, 0.4, 1.6),
+      anim:        createWildAnimState(model),
+    });
+  });
+}
+
+function createGuineaFowlFallback(x, z) {
   const g = new THREE.Group();
 
   // Dark spotted body
@@ -172,6 +228,38 @@ function createGuineaFowl(x, z) {
     wanderSpeed: 0.014 + Math.random() * 0.008,
     walkSpeed:   2.2,
     fleeSpeed:   9,
+    roam:        createWildRoamState(x, z, 14, 1.6, 2.5, 0.2, 1.0),
+    anim:        null,
+  });
+}
+
+function createGuineaFowl(x, z) {
+  const spawn = (typeof window.spawnWorldModel === 'function')
+    ? window.spawnWorldModel(window.MODEL_PATHS.animals.guineaFowl, {
+        x,
+        z,
+        targetHeight: 0.7,
+      })
+    : Promise.resolve(null);
+
+  spawn.then((model) => {
+    if (!model) {
+      createGuineaFowlFallback(x, z);
+      return;
+    }
+
+    wildAnimals.push({
+      mesh:        model,
+      type:        'bird',
+      radius:      0.45,
+      alive:       true,
+      wanderAngle: Math.random() * Math.PI * 2,
+      wanderSpeed: 0.014 + Math.random() * 0.008,
+      walkSpeed:   2.2,
+      fleeSpeed:   9,
+      roam:        createWildRoamState(x, z, 14, 1.6, 2.5, 0.2, 1.0),
+      anim:        createWildAnimState(model),
+    });
   });
 }
 
@@ -253,6 +341,38 @@ document.addEventListener('mousedown', e => {
 });
 
 // ============================================================
+// Scope / ADS  (right-click)
+// ============================================================
+let scopeActive = false;
+const SCOPE_FOV  = 18;   // zoomed-in FOV
+const NORMAL_FOV = 55;   // must match scene.js camera init
+
+function setScope(on) {
+  scopeActive = on;
+  const overlay   = document.getElementById('scope-overlay');
+  const crosshair = document.getElementById('crosshair');
+  if (overlay)   overlay.classList.toggle('hidden', !on);
+  if (crosshair) crosshair.style.display = on ? 'none' : '';
+  if (typeof rifleModel !== 'undefined') rifleModel.visible = !on && huntingMode;
+  camera.fov = on ? SCOPE_FOV : NORMAL_FOV;
+  camera.updateProjectionMatrix();
+}
+
+// Prevent context menu so right-click is usable
+document.addEventListener('contextmenu', e => { if (huntingMode) e.preventDefault(); });
+
+document.addEventListener('mousedown', e => {
+  if (e.button === 2 && huntingMode && document.pointerLockElement) {
+    setScope(true);
+  }
+});
+document.addEventListener('mouseup', e => {
+  if (e.button === 2 && scopeActive) {
+    setScope(false);
+  }
+});
+
+// ============================================================
 // Per-frame update — called from app.js
 // ============================================================
 let _huntClock = 0;
@@ -292,6 +412,7 @@ function updateHunting(dt) {
   // ---- Wild animals: wander / flee ----
   for (const animal of wildAnimals) {
     if (!animal.alive) continue;
+    if (animal.anim && animal.anim.mixer) animal.anim.mixer.update(dt);
 
     const dx2p = animal.mesh.position.x - player.pos.x;
     const dz2p = animal.mesh.position.z - player.pos.z;
@@ -302,20 +423,48 @@ function updateHunting(dt) {
       const len = dist || 1;
       animal.mesh.position.x += (dx2p / len) * animal.fleeSpeed * dt;
       animal.mesh.position.z += (dz2p / len) * animal.fleeSpeed * dt;
-      animal.mesh.rotation.y  = Math.atan2(dx2p, dz2p);
+      const targetYaw = Math.atan2(dx2p, dz2p);
+      animal.mesh.rotation.y += (targetYaw - animal.mesh.rotation.y) * Math.min(1, dt * 8);
+      if (animal.roam) {
+        animal.roam.targetX = animal.mesh.position.x + (dx2p / len) * 6;
+        animal.roam.targetZ = animal.mesh.position.z + (dz2p / len) * 6;
+        animal.roam.pauseTimer = 0;
+      }
     } else {
-      animal.wanderAngle += animal.wanderSpeed;
-      animal.mesh.position.x += Math.cos(animal.wanderAngle) * animal.walkSpeed * dt;
-      animal.mesh.position.z += Math.sin(animal.wanderAngle) * animal.walkSpeed * dt;
-      animal.mesh.rotation.y  = animal.wanderAngle + Math.PI / 2;
+      const roam = animal.roam;
+      if (roam) {
+        if (roam.pauseTimer > 0) {
+          roam.pauseTimer -= dt;
+        } else {
+          const dx = roam.targetX - animal.mesh.position.x;
+          const dz = roam.targetZ - animal.mesh.position.z;
+          const d = Math.sqrt(dx * dx + dz * dz);
+          if (d < 0.25) {
+            const ang = Math.random() * Math.PI * 2;
+            const r = Math.random() * roam.roamRadius;
+            roam.targetX = roam.baseX + Math.cos(ang) * r;
+            roam.targetZ = roam.baseZ + Math.sin(ang) * r;
+            roam.pauseTimer = roam.pauseMin + Math.random() * (roam.pauseMax - roam.pauseMin);
+          } else {
+            const step = Math.min(d, roam.moveSpeed * dt);
+            animal.mesh.position.x += (dx / d) * step;
+            animal.mesh.position.z += (dz / d) * step;
+            const targetYaw = Math.atan2(dx, dz);
+            animal.mesh.rotation.y += (targetYaw - animal.mesh.rotation.y) * Math.min(1, dt * 6);
+          }
+        }
+      }
     }
 
     // Keep in world bounds
     animal.mesh.position.x = Math.max(-250, Math.min(250, animal.mesh.position.x));
     animal.mesh.position.z = Math.max(-250, Math.min(250, animal.mesh.position.z));
 
-    // Stick to terrain
-    animal.mesh.position.y = groundAt(animal.mesh.position.x, animal.mesh.position.z);
+    // Stick to terrain while preserving each model's foot/root offset.
+    const groundOffset = (animal.mesh && animal.mesh.userData && typeof animal.mesh.userData.groundOffset === 'number')
+      ? animal.mesh.userData.groundOffset
+      : 0;
+    animal.mesh.position.y = groundAt(animal.mesh.position.x, animal.mesh.position.z) + groundOffset;
   }
 
   // ---- Loot collection: wider horizontal pickup radius ----
@@ -352,6 +501,9 @@ function updateHunting(dt) {
 // Hunting mode toggle
 // ============================================================
 function toggleHunting() {
+  // Exit scope if it's active before toggling
+  if (scopeActive) setScope(false);
+
   huntingMode = !huntingMode;
 
   const indicator = document.getElementById('hunt-indicator');

@@ -27,6 +27,7 @@ const FARM_TERRAIN_MAX_Z = 29.5;
 
 // Keep ambient world props out of buyable farmland footprints.
 const RESERVED_PLOT_AREAS = [
+  { x1: -7.5, x2: 7.5,  z1: 10.0, z2: 22.0 }, // base farm
   { x1: 7.5,  x2: 19.5, z1: 10.0, z2: 22.0 }, // east
   { x1: -7.5, x2: 7.5,  z1: 22.0, z2: 29.5 }, // north
   { x1: -7.5, x2: 7.5,  z1: 0.5,  z2: 9.5  }, // south
@@ -39,7 +40,7 @@ function moveOutOfReservedPlots(x, z, pad = 0.8) {
   let nz = z;
 
   // Handle overlaps deterministically; max passes prevents accidental infinite loops.
-  for (let pass = 0; pass < 4; pass++) {
+  for (let pass = 0; pass < 10; pass++) {
     let changed = false;
     for (const area of RESERVED_PLOT_AREAS) {
       const insideX = nx >= area.x1 && nx <= area.x2;
@@ -70,6 +71,19 @@ function _smoothstep(lo, hi, x) {
   return t * t * (3 - 2 * t);
 }
 
+function _terrainMicroNoise(x, z) {
+  // Deterministic micro-variation so collision/placement can match rendered terrain.
+  return (
+    Math.sin(x * 0.37 + z * 0.13) * 0.05 +
+    Math.cos(x * 0.19 - z * 0.29) * 0.04 +
+    Math.sin((x + z) * 0.11) * 0.03
+  );
+}
+
+function _naturalTerrainHeight(x, z) {
+  return Math.sin(x * 0.05) * 0.8 + Math.cos(z * 0.04) * 0.6 + _terrainMicroNoise(x, z);
+}
+
 // Top surface of the raised farm bed (15 cm above flattened terrain)
 const FARM_SURFACE_Y = FLAT_FARM_Y + 0.15;
 
@@ -79,6 +93,8 @@ function groundAt(x, z) {
   const inZ = z >= FARM_ORIGIN_Z && z <= FARM_ORIGIN_Z + FARM_ROWS * CELL_SIZE;
   if (inX && inZ) return FARM_SURFACE_Y;
 
+  const natural = _naturalTerrainHeight(x, z);
+
   // Planned expansion footprint uses flattened terrain until purchased,
   // then land.js overrides owned plots to FARM_SURFACE_Y.
   if (x >= FARM_TERRAIN_MIN_X && x <= FARM_TERRAIN_MAX_X &&
@@ -86,7 +102,25 @@ function groundAt(x, z) {
     return FLAT_FARM_Y;
   }
 
-  return Math.sin(x * 0.05) * 0.8 + Math.cos(z * 0.04) * 0.6;
+  // Blend band around planned farm terrain to match the visual terrain mesh.
+  const blendX1 = FARM_TERRAIN_MIN_X - FARM_BLEND;
+  const blendX2 = FARM_TERRAIN_MAX_X + FARM_BLEND;
+  const blendZ1 = FARM_TERRAIN_MIN_Z - FARM_BLEND;
+  const blendZ2 = FARM_TERRAIN_MAX_Z + FARM_BLEND;
+  if (x >= blendX1 && x <= blendX2 && z >= blendZ1 && z <= blendZ2) {
+    const bx = Math.min(
+      _smoothstep(blendX1, FARM_TERRAIN_MIN_X, x),
+      _smoothstep(blendX2, FARM_TERRAIN_MAX_X, x)
+    );
+    const bz = Math.min(
+      _smoothstep(blendZ1, FARM_TERRAIN_MIN_Z, z),
+      _smoothstep(blendZ2, FARM_TERRAIN_MAX_Z, z)
+    );
+    const blend = Math.min(bx, bz);
+    return natural * (1 - blend) + FLAT_FARM_Y * blend;
+  }
+
+  return natural;
 }
 camera.position.set(12, 8, 14);
 camera.lookAt(0, 1, 0);
@@ -97,6 +131,184 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 container.appendChild(renderer.domElement);
+
+// --- Runtime GLB loading helpers (with graceful fallback to procedural meshes) ---
+const _gltfLoader = (THREE && THREE.GLTFLoader) ? new THREE.GLTFLoader() : null;
+const _modelRootCache = new Map();
+
+const MODEL_PATHS = {
+  trees: {
+    acacia: [
+      'assets/models/trees/acacia/Acacia.glb',
+      'assets/models/trees/misc/generic-trees/Trees.glb',
+      'assets/models/trees/misc/palm-trees/Palm Trees.glb',
+    ],
+    baobab: [
+      'assets/models/trees/baobab/Baobab.glb',
+      'assets/models/trees/misc/dead-trees/Dead Trees.glb',
+      'assets/models/trees/misc/generic-trees/Trees.glb',
+    ],
+  },
+  animals: {
+    chicken: ['assets/models/animals/chicken/Chicken.glb', 'assets/models/animals/chicken/chicken.glb'],
+    goat: ['assets/models/animals/goat/Goat.glb', 'assets/models/animals/goat/goat.glb'],
+    cow: [
+      'assets/models/animals/cow/Cow.glb',
+      'assets/models/animals/cow/cow.glb',
+      'assets/models/animals/cow/Cow Animated.glb',
+      'assets/models/animals/cow/Cow_Animated.glb',
+    ],
+    giraffe: ['assets/models/animals/giraffe/Giraffe.glb', 'assets/models/animals/giraffe/giraffe.glb'],
+    elephant: ['assets/models/animals/elephant/Elephant.glb', 'assets/models/animals/elephant/elephant.glb'],
+    impala: [
+      'assets/models/animals/impala/Impala.glb',
+      'assets/models/animals/Gazelle.glb',
+      'assets/models/animals/gazelle/Gazelle.glb',
+    ],
+    guineaFowl: [
+      'assets/models/animals/guinea-fowl/Guinea Fowl.glb',
+      'assets/models/animals/guineafowl/GuineaFowl.glb',
+      'assets/models/animals/chicken/Chicken.glb',
+    ],
+  },
+};
+
+function _applyShadows(root) {
+  root.traverse((obj) => {
+    if (obj.isMesh) {
+      obj.castShadow = true;
+      obj.receiveShadow = true;
+    }
+  });
+}
+
+function _fitObjectToHeight(root, targetHeight) {
+  const box = new THREE.Box3().setFromObject(root);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+  if (size.y > 0.0001) {
+    const k = targetHeight / size.y;
+    root.scale.multiplyScalar(k);
+  }
+}
+
+function _positionObjectOnGround(root, x, z, yOffset = 0) {
+  const box = new THREE.Box3().setFromObject(root);
+  const center = new THREE.Vector3();
+  box.getCenter(center);
+  const minY = box.min.y;
+  const targetGround = groundAt(x, z);
+  const alignedY = targetGround - minY + yOffset;
+  root.position.set(x - center.x, alignedY, z - center.z);
+  root.userData.groundOffset = alignedY - targetGround;
+}
+
+function _getHeadLikeNode(root) {
+  let found = null;
+  root.traverse((obj) => {
+    if (found || !obj.name) return;
+    const n = obj.name.toLowerCase();
+    if (n.includes('head') || n.includes('neck')) found = obj;
+  });
+  return found;
+}
+
+function _loadModelRoot(path) {
+  if (!_gltfLoader) return Promise.resolve(null);
+  if (_modelRootCache.has(path)) return Promise.resolve(_modelRootCache.get(path));
+
+  return new Promise((resolve) => {
+    _gltfLoader.load(
+      encodeURI(path),
+      (gltf) => {
+        const src = gltf.scene || (gltf.scenes && gltf.scenes[0]) || null;
+        if (!src) {
+          _modelRootCache.set(path, null);
+          resolve(null);
+          return;
+        }
+        const asset = {
+          scene: src,
+          animations: Array.isArray(gltf.animations) ? gltf.animations : [],
+        };
+        _modelRootCache.set(path, asset);
+        resolve(asset);
+      },
+      undefined,
+      () => {
+        _modelRootCache.set(path, null);
+        resolve(null);
+      }
+    );
+  });
+}
+
+function _cloneSceneFromAsset(asset) {
+  if (!asset || !asset.scene) return null;
+  if (THREE.SkeletonUtils && typeof THREE.SkeletonUtils.clone === 'function') {
+    return THREE.SkeletonUtils.clone(asset.scene);
+  }
+  return asset.scene.clone(true);
+}
+
+async function spawnWorldModel(candidates, opts = {}) {
+  const {
+    x = 0,
+    z = 0,
+    targetHeight = null,
+    yOffset = 0,
+    rotationY = Math.random() * Math.PI * 2,
+  } = opts;
+
+  const list = Array.isArray(candidates) ? candidates : [candidates];
+  for (const path of list) {
+    const asset = await _loadModelRoot(path);
+    if (!asset || !asset.scene) continue;
+
+    const model = _cloneSceneFromAsset(asset);
+    if (!model) continue;
+    _applyShadows(model);
+    if (targetHeight) _fitObjectToHeight(model, targetHeight);
+    model.rotation.y = rotationY;
+    _positionObjectOnGround(model, x, z, yOffset);
+    model.userData.clips = asset.animations || [];
+    scene.add(model);
+    return model;
+  }
+  return null;
+}
+
+// Shared across scripts (hunting.js also uses this).
+window.spawnWorldModel = spawnWorldModel;
+window.MODEL_PATHS = MODEL_PATHS;
+
+function createRoamState(baseX, baseZ, radius, speedMin, speedMax, pauseMin = 0.4, pauseMax = 2.0) {
+  return {
+    baseX,
+    baseZ,
+    roamRadius: radius,
+    moveSpeed: speedMin + Math.random() * (speedMax - speedMin),
+    pauseTimer: Math.random() * pauseMax,
+    pauseMin,
+    pauseMax,
+    targetX: baseX + (Math.random() - 0.5) * radius,
+    targetZ: baseZ + (Math.random() - 0.5) * radius,
+  };
+}
+
+function createModelAnimationState(model, preferredClipPattern = null) {
+  const clips = (model && model.userData && Array.isArray(model.userData.clips)) ? model.userData.clips : [];
+  if (!clips.length) return null;
+
+  const mixer = new THREE.AnimationMixer(model);
+  const selected = preferredClipPattern
+    ? (clips.find((c) => preferredClipPattern.test((c.name || '').toLowerCase())) || clips[0])
+    : clips[0];
+
+  const action = mixer.clipAction(selected);
+  action.play();
+  return { mixer, action, clipName: selected.name || 'clip_0' };
+}
 
 // --- Lights (hot equatorial sun) ---
 const ambientLight = new THREE.AmbientLight(0xffe8c0, 0.55);
@@ -137,7 +349,7 @@ for (let i = 0; i < posAttr.count; i++) {
   const lx = posAttr.getX(i), ly = posAttr.getY(i);
   // PlaneGeometry rotated -π/2 around X: worldX=lx, worldZ=-ly
   const wx = lx, wz = -ly;
-  const natural = Math.sin(wx * 0.05) * 0.8 + Math.cos(wz * 0.04) * 0.6 + Math.random() * 0.15;
+  const natural = _naturalTerrainHeight(wx, wz);
   if (wx >= _fx1 && wx <= _fx2 && wz >= _fz1 && wz <= _fz2) {
     // Blend factor: 1 = full plateau, 0 = full natural terrain
     const bx = Math.min(
@@ -770,11 +982,7 @@ const marketPos = new THREE.Vector3(_mktX, groundAt(_mktX, _mktZ) + 1.0, _mktZ);
 
 
 // --- Acacia trees (flat-topped, iconic Tanzania) ---
-function createAcacia(x, z, s) {
-  // Keep trunks + wide flat canopies away from buyable farmland.
-  const safe = moveOutOfReservedPlots(x, z, 4.6);
-  const xPos = safe.x;
-  const zPos = safe.z;
+function createAcaciaFallback(xPos, zPos, s) {
   const gY = groundAt(xPos, zPos);
   const trunkH = 3 * s;
   const trunk = new THREE.Mesh(
@@ -810,12 +1018,24 @@ function createAcacia(x, z, s) {
   }
 }
 
-// --- Baobab trees (fat trunk, sparse crown) ---
-function createBaobab(x, z, s) {
-  // Keep bulky trunks/branches outside buyable farmland.
-  const safe = moveOutOfReservedPlots(x, z, 3.2);
+function createAcacia(x, z, s) {
+  // Keep trunks + wide flat canopies away from buyable farmland.
+  const safe = moveOutOfReservedPlots(x, z, 4.6);
   const xPos = safe.x;
   const zPos = safe.z;
+  spawnWorldModel(MODEL_PATHS.trees.acacia, {
+    x: xPos,
+    z: zPos,
+    targetHeight: 3.5 * s,
+    yOffset: -0.22 * s,
+  }).then((model) => {
+    if (model) return;
+    createAcaciaFallback(xPos, zPos, s);
+  });
+}
+
+// --- Baobab trees (fat trunk, sparse crown) ---
+function createBaobabFallback(xPos, zPos, s) {
   const gY = groundAt(xPos, zPos);
   // Massive trunk
   const trunk = new THREE.Mesh(
@@ -856,6 +1076,22 @@ function createBaobab(x, z, s) {
       scene.add(leafCluster);
     }
   }
+}
+
+function createBaobab(x, z, s) {
+  // Keep bulky trunks/branches outside buyable farmland.
+  const safe = moveOutOfReservedPlots(x, z, 3.2);
+  const xPos = safe.x;
+  const zPos = safe.z;
+  spawnWorldModel(MODEL_PATHS.trees.baobab, {
+    x: xPos,
+    z: zPos,
+    targetHeight: 4.8 * s,
+    yOffset: -0.30 * s,
+  }).then((model) => {
+    if (model) return;
+    createBaobabFallback(xPos, zPos, s);
+  });
 }
 
 // Place acacias (scattered across savanna)
@@ -987,7 +1223,7 @@ for (let i = 0; i < 5; i++) {
 
 // --- Chickens (near the hut, little round bodies with tiny heads) ---
 const chickens = [];
-function createChicken(x, z) {
+function createChickenFallback(x, z) {
   const g = new THREE.Group();
   // Body (round boi)
   const body = new THREE.Mesh(
@@ -1031,12 +1267,42 @@ function createChicken(x, z) {
   g.position.set(x, groundAt(x, z), z);
   g.rotation.y = Math.random() * Math.PI * 2;
   scene.add(g);
+  const roam = createRoamState(x, z, 1.8, 0.6, 1.1, 0.3, 1.2);
   chickens.push({
     mesh: g,
     baseX: x, baseZ: z,
     wanderAngle: Math.random() * Math.PI * 2,
     wanderSpeed: 0.005 + Math.random() * 0.01,
-    peckTimer: Math.random() * 5
+    peckTimer: Math.random() * 5,
+    roam,
+    anim: null,
+  });
+}
+
+function createChicken(x, z) {
+  spawnWorldModel(MODEL_PATHS.animals.chicken, {
+    x,
+    z,
+    targetHeight: 0.72,
+  }).then((model) => {
+    if (!model) {
+      createChickenFallback(x, z);
+      return;
+    }
+
+    const roam = createRoamState(x, z, 1.8, 0.7, 1.2, 0.3, 1.2);
+    const anim = createModelAnimationState(model, /(walk|run|idle|anim)/);
+
+    chickens.push({
+      mesh: model,
+      baseX: x,
+      baseZ: z,
+      wanderAngle: Math.random() * Math.PI * 2,
+      wanderSpeed: 0.005 + Math.random() * 0.01,
+      peckTimer: Math.random() * 5,
+      roam,
+      anim,
+    });
   });
 }
 // Scatter chickens near the hut
@@ -1045,7 +1311,7 @@ function createChicken(x, z) {
 
 // --- Goats (derpy rectangles with horns, wandering the savanna) ---
 const goats = [];
-function createGoat(x, z) {
+function createGoatFallback(x, z) {
   const safe = moveOutOfReservedPlots(x, z, 1.6);
   const gx = safe.x;
   const gz = safe.z;
@@ -1095,19 +1361,53 @@ function createGoat(x, z) {
   g.rotation.y = Math.random() * Math.PI * 2;
   g.castShadow = true;
   scene.add(g);
+  const roam = createRoamState(gx, gz, 3.8, 0.8, 1.5, 0.4, 1.8);
   goats.push({
     mesh: g,
     baseX: gx, baseZ: gz,
     wanderAngle: Math.random() * Math.PI * 2,
     wanderSpeed: 0.003 + Math.random() * 0.005,
-    wanderRadius: 2 + Math.random() * 3
+    wanderRadius: 2 + Math.random() * 3,
+    roam,
+    anim: null,
+  });
+}
+
+function createGoat(x, z) {
+  const safe = moveOutOfReservedPlots(x, z, 1.6);
+  const gx = safe.x;
+  const gz = safe.z;
+
+  spawnWorldModel(MODEL_PATHS.animals.goat, {
+    x: gx,
+    z: gz,
+    targetHeight: 1.2,
+  }).then((model) => {
+    if (!model) {
+      createGoatFallback(x, z);
+      return;
+    }
+
+    const roam = createRoamState(gx, gz, 3.8, 0.9, 1.6, 0.4, 1.8);
+    const anim = createModelAnimationState(model, /(walk|run|idle|anim)/);
+
+    goats.push({
+      mesh: model,
+      baseX: gx,
+      baseZ: gz,
+      wanderAngle: Math.random() * Math.PI * 2,
+      wanderSpeed: 0.003 + Math.random() * 0.005,
+      wanderRadius: 2 + Math.random() * 3,
+      roam,
+      anim,
+    });
   });
 }
 [[15, 8], [13, 12], [-12, -14], [18, -8], [-25, 5], [8, -12]].forEach(([x, z]) => createGoat(x, z));
 
 // --- Cows (chonky bois, grazing lazily) ---
 const cows = [];
-function createCow(x, z) {
+function createCowFallback(x, z) {
   const g = new THREE.Group();
   const isSpotted = Math.random() > 0.5;
   const bodyColor = isSpotted ? 0xfaf0e6 : 0x6b4226;
@@ -1174,11 +1474,45 @@ function createCow(x, z) {
   g.rotation.y = Math.random() * Math.PI * 2;
   g.castShadow = true;
   scene.add(g);
+  const roam = createRoamState(x, z, 2.8, 0.45, 0.85, 0.9, 3.0);
   cows.push({
     mesh: g,
+    baseX: x,
+    baseZ: z,
     wanderAngle: Math.random() * Math.PI * 2,
     wanderSpeed: 0.001 + Math.random() * 0.002,
-    headBob: Math.random() * Math.PI
+    headBob: Math.random() * Math.PI,
+    headNode: head,
+    roam,
+    anim: null,
+  });
+}
+
+function createCow(x, z) {
+  spawnWorldModel(MODEL_PATHS.animals.cow, {
+    x,
+    z,
+    targetHeight: 1.7,
+  }).then((model) => {
+    if (!model) {
+      createCowFallback(x, z);
+      return;
+    }
+
+    const roam = createRoamState(x, z, 2.8, 0.45, 0.85, 0.9, 3.0);
+    const anim = createModelAnimationState(model, /(walk|run|idle|anim)/);
+
+    cows.push({
+      mesh: model,
+      baseX: x,
+      baseZ: z,
+      wanderAngle: Math.random() * Math.PI * 2,
+      wanderSpeed: 0.001 + Math.random() * 0.002,
+      headBob: Math.random() * Math.PI,
+      headNode: _getHeadLikeNode(model),
+      roam,
+      anim,
+    });
   });
 }
 // Cows inside the animal pen area (SW of house)
@@ -1266,6 +1600,24 @@ function createGiraffe(x, z) {
 }
 const giraffe1 = createGiraffe(-55, -45);
 const giraffe2 = createGiraffe(65, -50);
+
+spawnWorldModel(MODEL_PATHS.animals.giraffe, {
+  x: -55,
+  z: -45,
+  targetHeight: 6.2,
+}).then((model) => {
+  if (!model) return;
+  giraffe1.visible = false;
+});
+
+spawnWorldModel(MODEL_PATHS.animals.giraffe, {
+  x: 65,
+  z: -50,
+  targetHeight: 6.0,
+}).then((model) => {
+  if (!model) return;
+  giraffe2.visible = false;
+});
 
 // --- Hippo (chunky potato in the distance, maybe near a puddle) ---
 function createHippo(x, z) {
@@ -1410,6 +1762,15 @@ function createElephant(x, z) {
   return g;
 }
 const elephant = createElephant(-70, -60);
+
+spawnWorldModel(MODEL_PATHS.animals.elephant, {
+  x: -70,
+  z: -60,
+  targetHeight: 3.2,
+}).then((model) => {
+  if (!model) return;
+  elephant.visible = false;
+});
 
 // ============================================================
 // SMS data flow particles
@@ -1724,6 +2085,41 @@ const muzzleFlash = new THREE.Mesh(
 muzzleFlash.position.set(0, 0.010, -0.468);
 muzzleFlash.visible = false;
 rifleModel.add(muzzleFlash);
+
+const _rfProceduralParts = [
+  _rfStock,
+  _rfReceiver,
+  _rfBarrel,
+  _rfScope,
+  _rfScopeObj,
+  _rfGrip,
+  _rfFore,
+];
+
+_loadModelRoot('assets/models/Sniper Rifle.glb').then((asset) => {
+  if (!asset || !asset.scene) return;
+  const rifleAsset = _cloneSceneFromAsset(asset);
+  if (!rifleAsset) return;
+
+  _applyShadows(rifleAsset);
+  _fitObjectToHeight(rifleAsset, 0.22);
+
+  const box = new THREE.Box3().setFromObject(rifleAsset);
+  const center = new THREE.Vector3();
+  box.getCenter(center);
+  rifleAsset.position.sub(center);
+
+  // Tuned for first-person framing in existing app.js viewmodel offset.
+  rifleAsset.position.set(0.02, -0.02, -0.06);
+  // Quaternius rifle points across local X by default; rotate to local -Z (camera forward).
+  rifleAsset.rotation.set(0, Math.PI * 0.5, 0);
+
+  rifleModel.add(rifleAsset);
+  _rfProceduralParts.forEach((p) => { p.visible = false; });
+
+  // Keep muzzle flash in front of barrel after model swap.
+  muzzleFlash.position.set(0, 0.0, -0.43);
+});
 
 rifleModel.visible = false;
 scene.add(rifleModel);

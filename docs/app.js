@@ -345,22 +345,54 @@ function animate() {
   rpiGroup.rotation.z = Math.sin(time * 0.8) * 0.01;
 
   const isNight = dayTime > 0.72 || dayTime < 0.24;
+  const groundOffsetOf = (mesh) => (mesh && mesh.userData && typeof mesh.userData.groundOffset === 'number')
+    ? mesh.userData.groundOffset
+    : 0;
 
   // Fence bounds for containing animals when fencing is owned
   const _fX1 = FENCE_X, _fZ1 = FENCE_Z, _fX2 = FENCE_X + FENCE_W, _fZ2 = FENCE_Z + FENCE_D;
 
+  const stepRoam = (a, dt, active) => {
+    if (!a || !a.roam) return;
+    const roam = a.roam;
+    if (!active) return;
+
+    if (roam.pauseTimer > 0) {
+      roam.pauseTimer -= dt;
+      return;
+    }
+
+    const dx = roam.targetX - a.mesh.position.x;
+    const dz = roam.targetZ - a.mesh.position.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+
+    if (dist < 0.18) {
+      const ang = Math.random() * Math.PI * 2;
+      const r = Math.random() * roam.roamRadius;
+      roam.targetX = a.baseX + Math.cos(ang) * r;
+      roam.targetZ = a.baseZ + Math.sin(ang) * r;
+      roam.pauseTimer = roam.pauseMin + Math.random() * (roam.pauseMax - roam.pauseMin);
+      return;
+    }
+
+    const step = Math.min(dist, roam.moveSpeed * dt);
+    a.mesh.position.x += (dx / dist) * step;
+    a.mesh.position.z += (dz / dist) * step;
+
+    const targetYaw = Math.atan2(dx, dz);
+    a.mesh.rotation.y += (targetYaw - a.mesh.rotation.y) * Math.min(1, dt * 6);
+  };
+
   chickens.forEach(c => {
+    if (c.anim && c.anim.mixer) c.anim.mixer.update(dt);
     if (isNight) {
       c.mesh.rotation.x = 0.35;
     } else {
-      c.wanderAngle += c.wanderSpeed;
+      stepRoam(c, dt, true);
       c.peckTimer   -= dt;
-      c.mesh.position.x = c.baseX + Math.cos(c.wanderAngle) * 1.5;
-      c.mesh.position.z = c.baseZ + Math.sin(c.wanderAngle) * 1.5;
       const cSafe = moveOutOfReservedPlots(c.mesh.position.x, c.mesh.position.z, 0.8);
       c.mesh.position.x = cSafe.x;
       c.mesh.position.z = cSafe.z;
-      c.mesh.rotation.y = c.wanderAngle + Math.PI / 2;
       if (c.peckTimer < 0.5 && c.peckTimer > 0) {
         c.mesh.rotation.x = Math.sin(c.peckTimer * 12) * 0.3;
       } else {
@@ -373,50 +405,62 @@ function animate() {
       c.mesh.position.x = Math.max(_fX1 + 0.5, Math.min(_fX2 - 0.5, c.mesh.position.x));
       c.mesh.position.z = Math.max(_fZ1 + 0.5, Math.min(_fZ2 - 0.5, c.mesh.position.z));
     }
-    c.mesh.position.y = getGroundHeight(c.mesh.position.x, c.mesh.position.z) + Math.abs(Math.sin(time * 6 + c.wanderAngle * 3)) * (isNight ? 0.005 : 0.03);
+    c.mesh.position.y = getGroundHeight(c.mesh.position.x, c.mesh.position.z)
+      + groundOffsetOf(c.mesh)
+      + Math.abs(Math.sin(time * 6 + c.wanderAngle * 3)) * (isNight ? 0.005 : 0.03);
   });
 
   goats.forEach(g => {
+    if (g.anim && g.anim.mixer) g.anim.mixer.update(dt);
     if (!isNight) {
-      g.wanderAngle += g.wanderSpeed;
-      g.mesh.position.x = g.baseX + Math.cos(g.wanderAngle) * g.wanderRadius;
-      g.mesh.position.z = g.baseZ + Math.sin(g.wanderAngle) * g.wanderRadius;
+      stepRoam(g, dt, true);
       const gSafe = moveOutOfReservedPlots(g.mesh.position.x, g.mesh.position.z, 1.0);
       g.mesh.position.x = gSafe.x;
       g.mesh.position.z = gSafe.z;
-      g.mesh.rotation.y = g.wanderAngle + Math.PI / 2;
     }
-    g.mesh.position.y = getGroundHeight(g.mesh.position.x, g.mesh.position.z) + Math.sin(time * 3 + g.wanderAngle) * (isNight ? 0.004 : 0.02);
+    g.mesh.position.y = getGroundHeight(g.mesh.position.x, g.mesh.position.z)
+      + groundOffsetOf(g.mesh)
+      + Math.sin(time * 3 + g.mesh.rotation.y) * (isNight ? 0.004 : 0.02);
   });
 
   cows.forEach(c => {
+    if (c.anim && c.anim.mixer) c.anim.mixer.update(dt);
     if (!isNight) {
-      c.wanderAngle += c.wanderSpeed;
-      c.mesh.rotation.y += c.wanderSpeed * 0.5;
+      stepRoam(c, dt, true);
       c.headBob += 0.02;
-      c.mesh.children[1].rotation.x = Math.sin(c.headBob) * 0.15;
+      const cowHead = c.headNode || c.mesh.children[1];
+      if (cowHead) cowHead.rotation.x = Math.sin(c.headBob) * 0.15;
     } else {
-      c.mesh.children[1].rotation.x = -0.08;
+      const cowHead = c.headNode || c.mesh.children[1];
+      if (cowHead) cowHead.rotation.x = -0.08;
     }
     // Keep cows inside fence if built
     if (fencingOwned) {
       c.mesh.position.x = Math.max(_fX1 + 0.8, Math.min(_fX2 - 0.8, c.mesh.position.x));
       c.mesh.position.z = Math.max(_fZ1 + 0.8, Math.min(_fZ2 - 0.8, c.mesh.position.z));
     }
+    c.mesh.position.y = getGroundHeight(c.mesh.position.x, c.mesh.position.z)
+      + groundOffsetOf(c.mesh)
+      + Math.sin(time * 2.2 + c.headBob) * (isNight ? 0.003 : 0.012);
   });
 
   [giraffe1, giraffe2].forEach(g => {
+    if (!g || !g.visible) return;
     g.rotation.y += 0.0003;
-    g.children[1].rotation.x = Math.sin(time * 0.5) * 0.05;
+    if (g.children[1]) g.children[1].rotation.x = Math.sin(time * 0.5) * 0.05;
   });
 
-  hippo.scale.y = 1 + Math.sin(time * 0.8) * 0.02;
-  hippo.children[5].rotation.z = Math.sin(time * 2) * 0.1;
-  hippo.children[6].rotation.z = Math.sin(time * 2 + 1) * 0.1;
+  if (hippo) {
+    hippo.scale.y = 1 + Math.sin(time * 0.8) * 0.02;
+    if (hippo.children[5]) hippo.children[5].rotation.z = Math.sin(time * 2) * 0.1;
+    if (hippo.children[6]) hippo.children[6].rotation.z = Math.sin(time * 2 + 1) * 0.1;
+  }
 
-  elephant.rotation.y += 0.0002;
-  elephant.children[6].rotation.y = Math.sin(time * 1.5) * 0.2 - 0.3;
-  elephant.children[7].rotation.y = Math.sin(time * 1.5 + 0.5) * 0.2 + 0.3;
+  if (elephant && elephant.visible) {
+    elephant.rotation.y += 0.0002;
+    if (elephant.children[6]) elephant.children[6].rotation.y = Math.sin(time * 1.5) * 0.2 - 0.3;
+    if (elephant.children[7]) elephant.children[7].rotation.y = Math.sin(time * 1.5 + 0.5) * 0.2 + 0.3;
+  }
 
   birds.forEach(b => {
     b.angle += b.speed;

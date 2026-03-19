@@ -101,7 +101,7 @@
         <kbd>1–5</kbd><span>Select seed type</span>
         <kbd>F</kbd><span>Plant / Water / Harvest crop</span>
         <kbd>T</kbd><span>Apply fertilizer to growing crop</span>
-        <kbd>G</kbd><span>Toggle hunt mode (left-click to shoot)</span>
+        <kbd>G</kbd><span>Toggle hunt mode (left-click to shoot, right-click to scope)</span>
         <kbd>E</kbd><span>Interact (shop / market / sleep)</span>
         <kbd>I</kbd><span>Toggle inventory</span>
         <kbd>Esc</kbd><span>Pause menu</span>
@@ -113,10 +113,31 @@
         savanna, tend crops, and raise animals beneath Kilimanjaro.
       </p>
 
+      <h3 class="section-heading">3D MODEL CREDITS</h3>
+      <p class="about-text about-credits">
+        Goat by Poly by Google
+        <a href="https://creativecommons.org/licenses/by/3.0/" class="about-link" target="_blank" rel="noopener noreferrer">[CC-BY]</a>
+        via <a href="https://poly.pizza/m/d7dImmjtF8E" class="about-link" target="_blank" rel="noopener noreferrer">Poly Pizza</a><br>
+        Cow by Quaternius via
+        <a href="https://poly.pizza/m/5XSc2Fka3F" class="about-link" target="_blank" rel="noopener noreferrer">Poly Pizza</a><br>
+        Chicken by jeremy
+        <a href="https://creativecommons.org/licenses/by/3.0/" class="about-link" target="_blank" rel="noopener noreferrer">[CC-BY]</a>
+        via <a href="https://poly.pizza/m/1YE8U35HXsI" class="about-link" target="_blank" rel="noopener noreferrer">Poly Pizza</a><br>
+        Giraffe by Poly by Google
+        <a href="https://creativecommons.org/licenses/by/3.0/" class="about-link" target="_blank" rel="noopener noreferrer">[CC-BY]</a>
+        via <a href="https://poly.pizza/m/80w8kwQU0QH" class="about-link" target="_blank" rel="noopener noreferrer">Poly Pizza</a><br>
+        Elephant by Poly by Google
+        <a href="https://creativecommons.org/licenses/by/3.0/" class="about-link" target="_blank" rel="noopener noreferrer">[CC-BY]</a>
+        via <a href="https://poly.pizza/m/cx0-TiCjDOx" class="about-link" target="_blank" rel="noopener noreferrer">Poly Pizza</a><br>
+        Gazelle by Poly by Google
+        <a href="https://creativecommons.org/licenses/by/3.0/" class="about-link" target="_blank" rel="noopener noreferrer">[CC-BY]</a>
+        via <a href="https://poly.pizza/m/bPYIQ_XQbrj" class="about-link" target="_blank" rel="noopener noreferrer">Poly Pizza</a>
+      </p>
+
       <p class="about-text" style="margin-top:12px; font-size:11px; color:#888;">
         &copy; 2026 MysticFox &mdash; Licensed under
         <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/"
-           style="color:#7cfc00;" target="_blank">CC BY-NC-SA 4.0</a><br>
+           style="color:#7cfc00;" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 4.0</a><br>
         Free to modify &amp; share with credit. Not for commercial use without permission.
       </p>
 
@@ -192,6 +213,7 @@
 <!-- ===== GAME CANVAS ===== -->
 <div id="canvas-container">
   <div id="crosshair"></div>
+  <div id="scope-overlay" class="hidden"></div>
 
   <div id="hud">
     <h1>FARM SIM</h1>
@@ -262,6 +284,8 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
 <script src="scene.js"></script>
 <script src="controls.js"></script>
 <script src="farming.js"></script>

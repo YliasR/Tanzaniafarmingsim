@@ -62,16 +62,17 @@ document.addEventListener('mousemove', e => {
 
 // ---- Terrain height (mirrors scene.js groundAt — raised bed surface inside farm) ----
 function getGroundHeight(x, z) {
+  if (typeof groundAt === 'function') return groundAt(x, z);
+
+  // Fallback only if scene.js was not initialized for any reason.
   if (x >= FARM_ORIGIN_X && x <= FARM_ORIGIN_X + FARM_COLS * CELL_SIZE &&
       z >= FARM_ORIGIN_Z && z <= FARM_ORIGIN_Z + FARM_ROWS * CELL_SIZE) {
     return FARM_SURFACE_Y;
   }
-
   if (x >= FARM_TERRAIN_MIN_X && x <= FARM_TERRAIN_MAX_X &&
       z >= FARM_TERRAIN_MIN_Z && z <= FARM_TERRAIN_MAX_Z) {
     return FLAT_FARM_Y;
   }
-
   return Math.sin(x * 0.05) * 0.8 + Math.cos(z * 0.04) * 0.6;
 }
 
