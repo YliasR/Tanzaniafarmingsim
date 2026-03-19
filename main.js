@@ -1,7 +1,7 @@
 const { app, BrowserWindow, Menu, protocol, net } = require('electron');
 const path = require('path');
 const fs   = require('fs');
-
+//im going crazy
 // Disable hardware acceleration issues on some Linux systems
 // app.disableHardwareAcceleration();  // uncomment if you get GPU errors
 
