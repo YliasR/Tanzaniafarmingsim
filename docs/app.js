@@ -453,8 +453,15 @@ function animate() {
     if (dist < 0.18) {
       const ang = Math.random() * Math.PI * 2;
       const r = Math.random() * roam.roamRadius;
-      roam.targetX = a.baseX + Math.cos(ang) * r;
-      roam.targetZ = a.baseZ + Math.sin(ang) * r;
+      // Clamp the TARGET out of farmland too — a target inside a reserved
+      // plot made animals walk in and get pushed out every frame (jitter).
+      const safeT = moveOutOfReservedPlots(
+        a.baseX + Math.cos(ang) * r,
+        a.baseZ + Math.sin(ang) * r,
+        1.2
+      );
+      roam.targetX = safeT.x;
+      roam.targetZ = safeT.z;
       roam.pauseTimer = roam.pauseMin + Math.random() * (roam.pauseMax - roam.pauseMin);
       return;
     }

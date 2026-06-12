@@ -196,6 +196,12 @@ function buildBigHouse() {
   const frameMat = new THREE.MeshLambertMaterial({ color: 0xbbbbbb });
   const concMat  = new THREE.MeshLambertMaterial({ color: 0x999999 });
 
+  // Foundation slab
+  const foundation = new THREE.Mesh(new THREE.BoxGeometry(7.5, 0.35, 6.0), concMat);
+  foundation.position.y = 0.17;
+  foundation.receiveShadow = true;
+  houseGroup.add(foundation);
+
   // Bigger walls (7 x 3.2 x 5.5m)
   const walls = new THREE.Mesh(new THREE.BoxGeometry(7, 3.2, 5.5), wallMat);
   walls.position.y = 1.6;
@@ -215,6 +221,20 @@ function buildBigHouse() {
   ridge.position.y = 3.82;
   houseGroup.add(ridge);
 
+  // Closed gable ends (triangles filling the roof void at ±X)
+  const gableShape = new THREE.Shape();
+  gableShape.moveTo(-2.8, 0);
+  gableShape.lineTo(2.8, 0);
+  gableShape.lineTo(0, 0.62);
+  gableShape.closePath();
+  const gableGeo = new THREE.ShapeGeometry(gableShape);
+  for (const s of [-1, 1]) {
+    const gable = new THREE.Mesh(gableGeo, new THREE.MeshLambertMaterial({ color: 0xddd2b4, side: THREE.DoubleSide }));
+    gable.position.set(s * 3.5, 3.2, 0);
+    gable.rotation.y = s * Math.PI / 2;
+    houseGroup.add(gable);
+  }
+
   // Front door (+X face)
   const door = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.2, 1.1), woodMat);
   door.position.set(3.54, 1.1, 0);
@@ -222,6 +242,12 @@ function buildBigHouse() {
   const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.4, 1.3), frameMat);
   doorFrame.position.set(3.52, 1.2, 0);
   houseGroup.add(doorFrame);
+  const doorHandle = new THREE.Mesh(
+    new THREE.SphereGeometry(0.05, 8, 6),
+    new THREE.MeshPhongMaterial({ color: 0xc8a030, shininess: 60 })
+  );
+  doorHandle.position.set(3.6, 1.05, 0.38);
+  houseGroup.add(doorHandle);
 
   // Concrete porch
   const porch = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.2, 3.0), concMat);

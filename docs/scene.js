@@ -20,19 +20,21 @@ const FARM_BLEND    = 8;      // blend zone width (m) between plateau and natura
 
 // Keep surrounding terrain low/smooth across all planned expansion plots
 // so purchased raised beds do not clip into taller natural ground.
+// (Bounds cover the plots in land.js plus the 2.5 m paths between them.)
 const FARM_TERRAIN_MIN_X = -7.5;
-const FARM_TERRAIN_MAX_X = 28.5;
-const FARM_TERRAIN_MIN_Z = 0.5;
-const FARM_TERRAIN_MAX_Z = 29.5;
+const FARM_TERRAIN_MAX_X = 33.5;
+const FARM_TERRAIN_MIN_Z = -1.5;
+const FARM_TERRAIN_MAX_Z = 32.0;
 
 // Keep ambient world props out of buyable farmland footprints.
+// Must mirror the plot rects in land.js.
 const RESERVED_PLOT_AREAS = [
   { x1: -7.5, x2: 7.5,  z1: 10.0, z2: 22.0 }, // base farm
-  { x1: 7.5,  x2: 19.5, z1: 10.0, z2: 22.0 }, // east
-  { x1: -7.5, x2: 7.5,  z1: 22.0, z2: 29.5 }, // north
-  { x1: -7.5, x2: 7.5,  z1: 0.5,  z2: 9.5  }, // south
-  { x1: 7.5,  x2: 19.5, z1: 22.0, z2: 29.5 }, // riverside
-  { x1: 19.5, x2: 28.5, z1: 10.0, z2: 22.0 }, // far east
+  { x1: 10.0, x2: 22.0, z1: 10.0, z2: 22.0 }, // east
+  { x1: -7.5, x2: 7.5,  z1: 24.5, z2: 32.0 }, // north
+  { x1: -7.5, x2: 7.5,  z1: -1.5, z2: 7.5  }, // south
+  { x1: 10.0, x2: 22.0, z1: 24.5, z2: 32.0 }, // riverside
+  { x1: 24.5, x2: 33.5, z1: 10.0, z2: 22.0 }, // far east
 ];
 
 function moveOutOfReservedPlots(x, z, pad = 0.8) {
@@ -284,6 +286,55 @@ async function spawnWorldModel(candidates, opts = {}) {
 // Shared across scripts (hunting.js also uses this).
 window.spawnWorldModel = spawnWorldModel;
 window.MODEL_PATHS = MODEL_PATHS;
+
+// Trees stay off the entire farm campus — plots AND the walkable paths
+// between them — otherwise plot-pushed clusters settle into the walkways.
+const _FARM_CAMPUS = {
+  x1: FARM_TERRAIN_MIN_X, x2: FARM_TERRAIN_MAX_X,
+  z1: FARM_TERRAIN_MIN_Z, z2: FARM_TERRAIN_MAX_Z,
+};
+
+function moveOutOfFarmCampus(x, z, pad = 1.0) {
+  const a = _FARM_CAMPUS;
+  if (x < a.x1 - pad || x > a.x2 + pad || z < a.z1 - pad || z > a.z2 + pad) return { x, z };
+  const escLeft  = Math.abs(x - a.x1);
+  const escRight = Math.abs(a.x2 - x);
+  const escSouth = Math.abs(z - a.z1);
+  const escNorth = Math.abs(a.z2 - z);
+  const minEsc = Math.min(escLeft, escRight, escSouth, escNorth);
+  if (minEsc === escLeft)       return { x: a.x1 - pad, z };
+  else if (minEsc === escRight) return { x: a.x2 + pad, z };
+  else if (minEsc === escSouth) return { x, z: a.z1 - pad };
+  return { x, z: a.z2 + pad };
+}
+
+// Some tree GLBs are multi-tree clusters whose canopies extend far past the
+// placement point. After loading, push the whole model out by its actual
+// bounding box so no part of it hangs over the campus.
+function _keepModelOutOfPlots(model, pad = 1.0) {
+  const a = _FARM_CAMPUS;
+  for (let pass = 0; pass < 4; pass++) {
+    const box = new THREE.Box3().setFromObject(model);
+    const overlapX = Math.min(box.max.x, a.x2) - Math.max(box.min.x, a.x1);
+    const overlapZ = Math.min(box.max.z, a.z2) - Math.max(box.min.z, a.z1);
+    if (overlapX <= 0 || overlapZ <= 0) return;
+    const escLeft  = box.max.x - a.x1 + pad;
+    const escRight = a.x2 - box.min.x + pad;
+    const escSouth = box.max.z - a.z1 + pad;
+    const escNorth = a.z2 - box.min.z + pad;
+    const minEsc = Math.min(escLeft, escRight, escSouth, escNorth);
+    if (minEsc === escLeft)       model.position.x -= escLeft;
+    else if (minEsc === escRight) model.position.x += escRight;
+    else if (minEsc === escSouth) model.position.z -= escSouth;
+    else                          model.position.z += escNorth;
+  }
+}
+
+// Tree colliders are registered from the FINAL placed position (model or
+// fallback), so collision always matches what the player actually sees.
+function _addTreeCollider(x, z, r) {
+  worldColliders.push({ x1: x - r, x2: x + r, z1: z - r, z2: z + r, name: 'tree' });
+}
 
 function createRoamState(baseX, baseZ, radius, speedMin, speedMax, pauseMin = 0.4, pauseMax = 2.0) {
   return {
@@ -684,75 +735,157 @@ const houseGroup = new THREE.Group();
 const _hX = -18, _hZ = 12;
 houseGroup.position.set(_hX, groundAt(_hX, _hZ), _hZ);
 
-const _wallMat  = new THREE.MeshLambertMaterial({ color: 0xf0e8d0 });
-const _metalMat = new THREE.MeshLambertMaterial({ color: 0x7a7a7a });
+const _wallMat  = new THREE.MeshLambertMaterial({ color: 0xeadfc2 });
+const _metalMat = new THREE.MeshLambertMaterial({ color: 0x8a4a3a }); // rust-red mabati
 const _woodMat  = new THREE.MeshLambertMaterial({ color: 0x5a3010 });
 const _winMat   = new THREE.MeshLambertMaterial({ color: 0x2a3a5a, transparent: true, opacity: 0.75 });
-const _frameMat = new THREE.MeshLambertMaterial({ color: 0xbbbbbb });
-const _concMat  = new THREE.MeshLambertMaterial({ color: 0x999999 });
+const _frameMat = new THREE.MeshLambertMaterial({ color: 0xcfc4a6 });
+const _concMat  = new THREE.MeshLambertMaterial({ color: 0x9a958a });
+
+// Foundation slab — lifts the house off the dirt
+const hFoundation = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.35, 4.5), _concMat);
+hFoundation.position.y = 0.17;
+hFoundation.receiveShadow = true;
+houseGroup.add(hFoundation);
 
 // Main walls (5 m wide/X, 4 m deep/Z, 2.5 m tall)
 const hWalls = new THREE.Mesh(new THREE.BoxGeometry(5, 2.5, 4), _wallMat);
-hWalls.position.y = 1.25;
+hWalls.position.y = 1.25 + 0.3;
 hWalls.castShadow = true;
 hWalls.receiveShadow = true;
 houseGroup.add(hWalls);
 
-// Gable roof — two angled corrugated-iron panels
+// Painted base band (common on rural Tanzanian houses)
+const hBand = new THREE.Mesh(new THREE.BoxGeometry(5.06, 0.6, 4.06), new THREE.MeshLambertMaterial({ color: 0x9a4a30 }));
+hBand.position.y = 0.65;
+houseGroup.add(hBand);
+
+// Gable roof — two angled corrugated-iron panels with a real overhang
 for (const s of [-1, 1]) {
-  const panel = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.10, 2.3), _metalMat);
-  panel.position.set(0, 2.78, s * 1.05);
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(6.0, 0.10, 2.45), _metalMat);
+  panel.position.set(0, 3.08, s * 1.08);
   panel.rotation.x = s * 0.24;
   panel.castShadow = true;
   houseGroup.add(panel);
 }
 const hRidge = new THREE.Mesh(
-  new THREE.BoxGeometry(5.5, 0.12, 0.2),
-  new THREE.MeshLambertMaterial({ color: 0x555555 })
+  new THREE.BoxGeometry(5.9, 0.12, 0.2),
+  new THREE.MeshLambertMaterial({ color: 0x6a3428 })
 );
-hRidge.position.y = 3.06;
+hRidge.position.y = 3.36;
 houseGroup.add(hRidge);
+
+// Closed gable ends — triangles filling the roof void at ±X
+(function buildGableEnds() {
+  const tri = new THREE.Shape();
+  tri.moveTo(-2.05, 0);
+  tri.lineTo(2.05, 0);
+  tri.lineTo(0, 0.56);
+  tri.closePath();
+  const triGeo = new THREE.ShapeGeometry(tri);
+  for (const s of [-1, 1]) {
+    const gable = new THREE.Mesh(triGeo, new THREE.MeshLambertMaterial({ color: 0xddcfa9, side: THREE.DoubleSide }));
+    gable.position.set(s * 2.5, 2.8, 0);
+    gable.rotation.y = s * Math.PI / 2;
+    houseGroup.add(gable);
+  }
+})();
 
 // Door on +X face (east, facing the farm)
 const hDoor = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.0, 0.9), _woodMat);
-hDoor.position.set(2.54, 1.0, 0);
+hDoor.position.set(2.54, 1.3, 0);
 houseGroup.add(hDoor);
 const hDoorFrame = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.18, 1.06), _frameMat);
-hDoorFrame.position.set(2.52, 1.09, 0);
+hDoorFrame.position.set(2.52, 1.39, 0);
 houseGroup.add(hDoorFrame);
+// Door handle
+const hHandle = new THREE.Mesh(
+  new THREE.SphereGeometry(0.045, 8, 6),
+  new THREE.MeshPhongMaterial({ color: 0xc8a030, shininess: 60 })
+);
+hHandle.position.set(2.6, 1.25, 0.3);
+houseGroup.add(hHandle);
 
 // Concrete step
-const hStep = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.18, 1.1), _concMat);
-hStep.position.set(2.72, 0.09, 0);
+const hStep = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.3, 1.2), _concMat);
+hStep.position.set(2.85, 0.15, 0);
 houseGroup.add(hStep);
 
 // Veranda overhang + two wooden posts
-const hVeranda = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.09, 1.5), _metalMat);
-hVeranda.position.set(3.24, 2.52, 0);
+const hVeranda = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.09, 1.8), _metalMat);
+hVeranda.position.set(3.3, 2.78, 0);
+hVeranda.rotation.z = -0.06;
+hVeranda.castShadow = true;
 houseGroup.add(hVeranda);
-for (const s of [-0.55, 0.55]) {
-  const vPost = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.065, 2.5, 6), _woodMat);
-  vPost.position.set(3.90, 1.25, s);
+for (const s of [-0.7, 0.7]) {
+  const vPost = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.065, 2.75, 6), _woodMat);
+  vPost.position.set(4.0, 1.4, s);
   houseGroup.add(vPost);
 }
 
-// Windows on front face (flanking door)
+// Windows on front face (flanking door) — frame, glass, crossbars, sill, shutters
 for (const s of [-1.35, 1.35]) {
   const wf = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.80, 1.0), _frameMat);
-  wf.position.set(2.51, 1.65, s);
+  wf.position.set(2.51, 1.95, s);
   houseGroup.add(wf);
   const wg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.65, 0.85), _winMat);
-  wg.position.set(2.525, 1.65, s);
+  wg.position.set(2.525, 1.95, s);
   houseGroup.add(wg);
+  // Crossbars
+  const wbH = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.04, 0.85), _frameMat);
+  wbH.position.set(2.525, 1.95, s);
+  houseGroup.add(wbH);
+  const wbV = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.65, 0.04), _frameMat);
+  wbV.position.set(2.525, 1.95, s);
+  houseGroup.add(wbV);
+  // Sill
+  const sill = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.06, 1.06), _concMat);
+  sill.position.set(2.54, 1.52, s);
+  houseGroup.add(sill);
+  // Wooden shutters on each side of the window
+  for (const sh of [-0.62, 0.62]) {
+    const shutter = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.72, 0.26), _woodMat);
+    shutter.position.set(2.53, 1.95, s + sh);
+    houseGroup.add(shutter);
+  }
 }
 // Side windows
 for (const s of [-1, 1]) {
   const wf = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.75, 0.07), _frameMat);
-  wf.position.set(0.6, 1.65, s * 2.01);
+  wf.position.set(0.6, 1.95, s * 2.01);
   houseGroup.add(wf);
   const wg = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.60, 0.08), _winMat);
-  wg.position.set(0.6, 1.65, s * 2.025);
+  wg.position.set(0.6, 1.95, s * 2.025);
   houseGroup.add(wg);
+  const wb = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.04, 0.09), _frameMat);
+  wb.position.set(0.6, 1.95, s * 2.025);
+  houseGroup.add(wb);
+}
+
+// Stone path from the door toward the farm
+for (let i = 0; i < 4; i++) {
+  const stone = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.26 + Math.random() * 0.08, 0.3, 0.05, 7),
+    _concMat
+  );
+  stone.position.set(3.6 + i * 0.75, 0.03, (Math.random() - 0.5) * 0.3);
+  houseGroup.add(stone);
+}
+
+// Clay pots by the door
+for (const [px, pz, ps] of [[2.95, 0.95, 1.0], [2.9, -0.9, 0.8]]) {
+  const pot = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.14 * ps, 0.1 * ps, 0.26 * ps, 8),
+    new THREE.MeshLambertMaterial({ color: 0x9a5a30 })
+  );
+  pot.position.set(px, 0.43, pz);
+  houseGroup.add(pot);
+  const plant = new THREE.Mesh(
+    new THREE.SphereGeometry(0.12 * ps, 6, 5),
+    new THREE.MeshLambertMaterial({ color: 0x4a7a28 })
+  );
+  plant.position.set(px, 0.62, pz);
+  houseGroup.add(plant);
 }
 
 // Blue plastic water storage tank
@@ -1042,8 +1175,9 @@ function createAcaciaFallback(xPos, zPos, s) {
 }
 
 function createAcacia(x, z, s) {
-  // Keep trunks + wide flat canopies away from buyable farmland.
-  const safe = moveOutOfReservedPlots(x, z, 4.6);
+  // Keep trunks + wide flat canopies away from the whole farm campus.
+  // (Pad is generous because the GLB "trees" are multi-tree clusters.)
+  const safe = moveOutOfFarmCampus(x, z, 7.0);
   const xPos = safe.x;
   const zPos = safe.z;
   spawnWorldModel(MODEL_PATHS.trees.acacia, {
@@ -1052,8 +1186,14 @@ function createAcacia(x, z, s) {
     targetHeight: 3.5 * s,
     yOffset: -0.22 * s,
   }).then((model) => {
-    if (model) return;
+    if (model) {
+      _keepModelOutOfPlots(model, 1.0);
+      const box = new THREE.Box3().setFromObject(model);
+      _addTreeCollider((box.min.x + box.max.x) / 2, (box.min.z + box.max.z) / 2, 0.6 * s);
+      return;
+    }
     createAcaciaFallback(xPos, zPos, s);
+    _addTreeCollider(xPos, zPos, 0.6 * s);
   });
 }
 
@@ -1102,8 +1242,8 @@ function createBaobabFallback(xPos, zPos, s) {
 }
 
 function createBaobab(x, z, s) {
-  // Keep bulky trunks/branches outside buyable farmland.
-  const safe = moveOutOfReservedPlots(x, z, 3.2);
+  // Keep bulky trunks/branches outside the whole farm campus.
+  const safe = moveOutOfFarmCampus(x, z, 5.0);
   const xPos = safe.x;
   const zPos = safe.z;
   spawnWorldModel(MODEL_PATHS.trees.baobab, {
@@ -1112,8 +1252,14 @@ function createBaobab(x, z, s) {
     targetHeight: 4.8 * s,
     yOffset: -0.30 * s,
   }).then((model) => {
-    if (model) return;
+    if (model) {
+      _keepModelOutOfPlots(model, 1.0);
+      const box = new THREE.Box3().setFromObject(model);
+      _addTreeCollider((box.min.x + box.max.x) / 2, (box.min.z + box.max.z) / 2, 0.9 * s);
+      return;
+    }
     createBaobabFallback(xPos, zPos, s);
+    _addTreeCollider(xPos, zPos, 0.9 * s);
   });
 }
 
@@ -1457,7 +1603,9 @@ function createGoat(x, z) {
     });
   });
 }
-[[15, 8], [13, 12], [-12, -14], [18, -8], [-25, 5], [8, -12]].forEach(([x, z]) => createGoat(x, z));
+// Goat spawns sit clear of all buyable farmland (two used to spawn right on
+// the East Field and jitter against its boundary forever).
+[[28, 4], [38, 16], [-12, -14], [18, -8], [-25, 5], [3, -12]].forEach(([x, z]) => createGoat(x, z));
 
 // --- Cows (chonky bois, grazing lazily) ---
 const cows = [];
@@ -2071,16 +2219,9 @@ const worldColliders = [
   { x1:  52, x2:  58, z1: -12, z2: -8,  name: 'market'  },  // (55, -10), 5×3.5 m
 ];
 
-for (const [x, z, s] of ACACIA_TREE_POSITIONS) {
-  const safe = moveOutOfReservedPlots(x, z, 4.6);
-  const r = 0.6 * s;
-  worldColliders.push({ x1: safe.x - r, x2: safe.x + r, z1: safe.z - r, z2: safe.z + r, name: 'acacia' });
-}
-for (const [x, z, s] of BAOBAB_TREE_POSITIONS) {
-  const safe = moveOutOfReservedPlots(x, z, 3.2);
-  const r = 0.9 * s;
-  worldColliders.push({ x1: safe.x - r, x2: safe.x + r, z1: safe.z - r, z2: safe.z + r, name: 'baobab' });
-}
+// Tree colliders are registered by createAcacia/createBaobab once each tree
+// settles at its final position (after the bounding-box plot push), so the
+// collision boxes always match the visible trunks.
 
 // Sky dome background is handled above — day/night tints it in app.js
 

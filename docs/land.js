@@ -3,13 +3,17 @@
 // ============================================================
 
 // Existing farm: X [-7.5 .. 7.5], Z [10.0 .. 22.0] (10 cols x 8 rows x 1.5m)
+// Every expansion plot is separated from its neighbours by a 2.5 m walkable
+// path — beds used to share edges exactly, which made their skirts overlap
+// and z-fight. Cell indices derive from definition order, so moving origins
+// is save-compatible.
 
 const LAND_PLOTS = [
-  { id: 'east',      name: 'East Field',      type: 'fertile',   ox: 7.5,  oz: 10.0, cols: 8,  rows: 8,  price: 800,  growMult: 1.0,  soilColor: 0x5a3010 },
-  { id: 'north',     name: 'North Strip',      type: 'fertile',   ox: -7.5, oz: 22.0, cols: 10, rows: 5,  price: 600,  growMult: 1.0,  soilColor: 0x5a3010 },
-  { id: 'south',     name: 'South Savanna',     type: 'savanna',   ox: -7.5, oz: 0.5,  cols: 10, rows: 6,  price: 400,  growMult: 0.7,  soilColor: 0x7a5a20 },
-  { id: 'riverside', name: 'Riverside Plot',    type: 'riverside', ox: 7.5,  oz: 22.0, cols: 8,  rows: 5,  price: 1500, growMult: 1.4,  soilColor: 0x3a2a15 },
-  { id: 'fareast',   name: 'Far East Savanna',  type: 'savanna',   ox: 19.5, oz: 10.0, cols: 6,  rows: 8,  price: 500,  growMult: 0.7,  soilColor: 0x7a5a20 },
+  { id: 'east',      name: 'East Field',      type: 'fertile',   ox: 10.0, oz: 10.0, cols: 8,  rows: 8,  price: 800,  growMult: 1.0,  soilColor: 0x5a3010 },
+  { id: 'north',     name: 'North Strip',      type: 'fertile',   ox: -7.5, oz: 24.5, cols: 10, rows: 5,  price: 600,  growMult: 1.0,  soilColor: 0x5a3010 },
+  { id: 'south',     name: 'South Savanna',     type: 'savanna',   ox: -7.5, oz: -1.5, cols: 10, rows: 6,  price: 400,  growMult: 0.7,  soilColor: 0x7a5a20 },
+  { id: 'riverside', name: 'Riverside Plot',    type: 'riverside', ox: 10.0, oz: 24.5, cols: 8,  rows: 5,  price: 1500, growMult: 1.4,  soilColor: 0x3a2a15 },
+  { id: 'fareast',   name: 'Far East Savanna',  type: 'savanna',   ox: 24.5, oz: 10.0, cols: 6,  rows: 8,  price: 500,  growMult: 0.7,  soilColor: 0x7a5a20 },
 ];
 
 // Prerequisites: which plots must be owned before this one is available

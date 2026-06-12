@@ -1,6 +1,6 @@
 {
   "name": "tanzania-farm-sim",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Low-poly open-world farming sim set in rural Tanzania",
   "main": "main.js",
   "author": {
