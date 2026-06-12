@@ -61,9 +61,10 @@ function createWindow() {
         ...details.responseHeaders,
         'Content-Security-Policy': [
           "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://openrouter.ai; " +
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
           "connect-src 'self' blob: https://openrouter.ai https://api.openrouter.ai; " +
           "img-src 'self' data: blob:; " +
-          "font-src 'self';"
+          "font-src 'self' https://fonts.gstatic.com;"
         ],
       },
     });
@@ -78,7 +79,8 @@ app.whenReady().then(() => {
   const MIME = {
     '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css',
     '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
-    '.gif': 'image/gif', '.svg': 'image/svg+xml', '.glb': 'model/gltf-binary',
+    '.gif': 'image/gif', '.svg': 'image/svg+xml', '.webp': 'image/webp',
+    '.glb': 'model/gltf-binary',
     '.gltf': 'model/gltf+json', '.ico': 'image/x-icon', '.woff2': 'font/woff2',
     '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.wav': 'audio/wav',
   };

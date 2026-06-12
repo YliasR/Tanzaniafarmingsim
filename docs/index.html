@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tanzania Farm Sim</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,18 +13,46 @@
 <!-- ===== MENU OVERLAY ===== -->
 <div id="menu-overlay">
 
+  <!-- Animated savanna-dusk backdrop (shared by all menu pages) -->
+  <div id="menu-scene" aria-hidden="true">
+    <div class="ms-sky"></div>
+    <div class="ms-stars"></div>
+    <div class="ms-sun"></div>
+    <div class="ms-cloud c1"></div>
+    <div class="ms-cloud c2"></div>
+    <div class="ms-cloud c3"></div>
+    <svg class="ms-mountains" viewBox="0 0 1200 260" preserveAspectRatio="none">
+      <path class="ms-hill-far" d="M0,260 L0,185 Q160,150 320,180 Q460,205 600,188 Q900,165 1200,205 L1200,260 Z"/>
+      <path class="ms-kili" d="M210,260 Q420,118 545,92 L705,92 Q840,118 1030,260 Z"/>
+      <path class="ms-snow" d="M545,92 L705,92 Q745,100 775,118 L737,130 L700,114 L658,133 L620,112 L578,131 L545,113 Q520,122 488,119 Q510,100 545,92 Z"/>
+      <path class="ms-kili" d="M920,260 L1030,150 L1145,260 Z"/>
+    </svg>
+    <svg class="ms-acacia left" viewBox="0 0 200 140" aria-hidden="true">
+      <ellipse cx="100" cy="44" rx="80" ry="15"/>
+      <path d="M94,140 L97,82 Q58,72 28,46 Q88,62 99,56 Q112,62 172,46 Q142,72 103,82 L108,140 Z"/>
+    </svg>
+    <svg class="ms-acacia right" viewBox="0 0 200 140" aria-hidden="true">
+      <ellipse cx="100" cy="44" rx="80" ry="15"/>
+      <path d="M94,140 L97,82 Q58,72 28,46 Q88,62 99,56 Q112,62 172,46 Q142,72 103,82 L108,140 Z"/>
+    </svg>
+    <div class="ms-ground"></div>
+    <div class="ms-vignette"></div>
+  </div>
+
   <!-- Title Screen -->
   <div id="page-title" class="menu-page">
-    <div class="menu-card">
+    <div class="title-stack">
       <div class="title-logo">
+        <p class="title-kicker">&#9728; TANZANIA &#9728;</p>
         <h1>FARM<br>SIM</h1>
-        <p class="title-sub">Tanzania &mdash; off-grid farming</p>
+        <p class="title-sub">off-grid farming beneath Kilimanjaro</p>
       </div>
-      <div class="menu-buttons">
-        <button class="menu-btn primary" onclick="startGame()">&#9654; PLAY</button>
-        <button class="menu-btn" onclick="showPage('settings')">&#9881; SETTINGS</button>
-        <button class="menu-btn" onclick="showPage('help')">? HELP / ABOUT</button>
+      <div class="menu-buttons title-buttons">
+        <button class="menu-btn primary" onclick="startGame()"><span class="btn-ico">&#9654;</span>PLAY</button>
+        <button class="menu-btn" onclick="showPage('settings')"><span class="btn-ico">&#9881;</span>SETTINGS</button>
+        <button class="menu-btn" onclick="showPage('help')"><span class="btn-ico">?</span>HELP / ABOUT</button>
       </div>
+      <p class="title-version">v1.4.0 &mdash; MysticFox</p>
     </div>
   </div>
 
@@ -30,6 +60,18 @@
   <div id="page-settings" class="menu-page hidden">
     <div class="menu-card">
       <h2 class="page-title">SETTINGS</h2>
+
+      <div class="setting-group">
+        <label class="setting-label">Graphics Quality</label>
+        <div class="input-row">
+          <select id="quality-select" class="menu-select">
+            <option value="high">High — full shadows, sharp render</option>
+            <option value="medium">Medium — softer shadows</option>
+            <option value="low">Low — no shadows, fastest</option>
+          </select>
+        </div>
+        <p class="setting-hint">Lower this if the game stutters on older machines.</p>
+      </div>
 
       <div class="setting-group">
         <label class="setting-label">OpenRouter API Key</label>
@@ -46,34 +88,33 @@
       </div>
 
       <div class="setting-group">
-        <label class="setting-label">Game Data</label>
-        <p class="setting-hint">Delete your save and start from scratch. (irreversible)</p>
-      </div>
-
-      <div class="setting-group">
         <label class="setting-label" for="hardmode-toggle">Difficulty</label>
         <div class="input-row">
           <label class="setting-hint hardmode-row">
             <input type="checkbox" id="hardmode-toggle">
-            Hard Mode (soil quality limits planting + changes crop growth speed)
+            <span>Hard Mode &mdash; soil quality limits planting + changes crop growth speed</span>
           </label>
         </div>
-        <div class="input-row" style="margin-top:6px">
+        <div class="input-row" style="margin-top:8px">
           <label class="setting-hint hardmode-row">
             <input type="checkbox" id="devmode-toggle">
-            Dev Mode (start with 9,999,999 TSh)
+            <span>Dev Mode &mdash; start with 9,999,999 TSh</span>
           </label>
         </div>
       </div>
 
       <div class="setting-group">
         <label class="setting-label">UI Scale</label>
-        <div class="input-row" style="align-items:center; gap:12px">
-          <input type="range" id="uiscale-slider" min="0.8" max="2.0" step="0.1" value="1"
-                 style="flex:1; accent-color:#7cfc00;">
-          <span id="uiscale-value" class="setting-hint" style="min-width:36px; text-align:center; margin-top:0;">1.0x</span>
+        <div class="input-row slider-row">
+          <input type="range" id="uiscale-slider" min="0.8" max="2.0" step="0.1" value="1">
+          <span id="uiscale-value" class="slider-value">1.0x</span>
         </div>
         <p class="setting-hint">Scale up for high-res monitors (1440p / 4K). Default: 1.0x</p>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label">Game Data</label>
+        <p class="setting-hint">Reset deletes your save and starts from scratch. (irreversible)</p>
       </div>
 
       <div class="menu-buttons">
@@ -98,10 +139,10 @@
         <kbd>Space</kbd><span>Jump</span>
         <kbd>N</kbd><span>Toggle Nokia phone</span>
         <kbd>R</kbd><span>Request new AI soil report (Nokia open)</span>
-        <kbd>1–5</kbd><span>Select seed type</span>
+        <kbd>1&ndash;5</kbd><span>Select seed type</span>
         <kbd>F</kbd><span>Plant / Water / Harvest crop</span>
         <kbd>T</kbd><span>Apply fertilizer to growing crop</span>
-        <kbd>G</kbd><span>Toggle hunt mode (left-click to shoot, right-click to scope)</span>
+        <kbd>G</kbd><span>Toggle hunt mode (left-click shoot, right-click scope)</span>
         <kbd>E</kbd><span>Interact (shop / market / sleep)</span>
         <kbd>I</kbd><span>Toggle inventory</span>
         <kbd>Esc</kbd><span>Pause menu</span>
@@ -134,10 +175,10 @@
         via <a href="https://poly.pizza/m/bPYIQ_XQbrj" class="about-link" target="_blank" rel="noopener noreferrer">Poly Pizza</a>
       </p>
 
-      <p class="about-text" style="margin-top:12px; font-size:11px; color:#888;">
+      <p class="about-text about-license">
         &copy; 2026 MysticFox &mdash; Licensed under
         <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/"
-           style="color:#7cfc00;" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 4.0</a><br>
+           class="about-link" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 4.0</a><br>
         Free to modify &amp; share with credit. Not for commercial use without permission.
       </p>
 
@@ -151,19 +192,20 @@
 
 <!-- ===== PAUSE MENU ===== -->
 <div id="pause-overlay" class="hidden">
-  <div class="menu-card">
+  <div class="menu-card pause-card">
+    <p class="title-kicker">&#9208;</p>
     <h2 class="page-title">PAUSED</h2>
     <div class="menu-buttons">
-      <button class="menu-btn primary" onclick="resumeGame()">&#9654; RESUME</button>
-      <button class="menu-btn" onclick="returnToMenu()">&#8592; MAIN MENU</button>
-      <button class="menu-btn danger" onclick="exitGame()">&#10005; EXIT GAME</button>
+      <button class="menu-btn primary" onclick="resumeGame()"><span class="btn-ico">&#9654;</span>RESUME</button>
+      <button class="menu-btn" onclick="returnToMenu()"><span class="btn-ico">&#8592;</span>MAIN MENU</button>
+      <button class="menu-btn danger" onclick="exitGame()"><span class="btn-ico">&#10005;</span>EXIT GAME</button>
     </div>
   </div>
 </div>
 
 <!-- ===== QUEST DIALOG ===== -->
 <div id="quest-dialog" class="trade-overlay hidden">
-  <div class="trade-card" style="width:400px">
+  <div class="trade-card quest-card">
     <h2 class="trade-title" id="qd-title"></h2>
     <div id="qd-body"></div>
     <div class="menu-buttons" style="margin-top:20px">
@@ -176,9 +218,9 @@
 <!-- ===== SHOP OVERLAY ===== -->
 <div id="shop-overlay" class="trade-overlay hidden">
   <div class="trade-card">
-    <h2 class="trade-title">DUKA — SHOP</h2>
+    <h2 class="trade-title">DUKA &mdash; SHOP</h2>
     <div class="trade-money">Balance: TSh <span id="shop-money">500</span></div>
-    <h3 class="section-heading">SEEDS  (x5 per purchase)</h3>
+    <h3 class="section-heading">SEEDS &mdash; x5 per purchase</h3>
     <div id="shop-seeds"></div>
     <h3 class="section-heading">TOOLS</h3>
     <div id="shop-tools"></div>
@@ -190,14 +232,14 @@
     <div id="shop-land"></div>
     <h3 class="section-heading">UPGRADES</h3>
     <div id="shop-upgrades"></div>
-    <button class="menu-btn" onclick="closeShop()">[E] CLOSE</button>
+    <button class="menu-btn trade-close" onclick="closeShop()">[E] CLOSE</button>
   </div>
 </div>
 
 <!-- ===== MARKET OVERLAY ===== -->
 <div id="market-overlay" class="trade-overlay hidden">
   <div class="trade-card">
-    <h2 class="trade-title">SOKO — MARKET</h2>
+    <h2 class="trade-title">SOKO &mdash; MARKET</h2>
     <div class="trade-money">Balance: TSh <span id="market-money">500</span></div>
     <p id="market-notice" class="market-notice">Prices change daily!</p>
     <h3 class="section-heading">SELL CROPS</h3>
@@ -206,7 +248,7 @@
     <div id="market-products"></div>
     <h3 class="section-heading">SELL HUNTING LOOT</h3>
     <div id="market-loot"></div>
-    <button class="menu-btn" onclick="closeMarket()">[E] CLOSE</button>
+    <button class="menu-btn trade-close" onclick="closeMarket()">[E] CLOSE</button>
   </div>
 </div>
 
@@ -214,13 +256,14 @@
 <div id="canvas-container">
   <div id="crosshair"></div>
   <div id="scope-overlay" class="hidden"></div>
+  <div id="sleep-fade"></div>
 
   <div id="hud">
     <h1>FARM SIM</h1>
     <div id="money-hud">TSh <span id="money-amount">500</span></div>
     <div id="game-clock">06:00</div>
     <div id="weather-hud"></div>
-    <p id="nokia-hint-hud">[ N ] Nokia  [ I ] Inventory</p>
+    <p id="nokia-hint-hud">[ N ] Nokia &nbsp;[ I ] Inventory</p>
     <div id="soil-data-hud" style="display:none"></div>
   </div>
 
@@ -232,7 +275,6 @@
   <!-- Quest completion toast -->
   <div id="quest-notification"></div>
 
-  <!-- 2D Nokia phone widget -->
   <!-- Seed toolbar -->
   <div id="seed-toolbar">
     <div class="seed-slot active"><span class="seed-key">1</span><span class="seed-name">MAIZE</span><span class="seed-count">x5</span></div>
@@ -244,13 +286,13 @@
 
   <!-- Inventory panel (I key toggle) -->
   <div id="inv-panel" style="display:none">
-    <h3 class="inv-header">INVENTORY  [I]</h3>
+    <h3 class="inv-header">INVENTORY&nbsp; [I]</h3>
     <div id="inv-panel-body"></div>
   </div>
 
   <!-- Hunt mode indicator -->
   <div id="hunt-indicator" style="display:none">
-    <span class="hunt-label">HUNT MODE  [G]</span>
+    <span class="hunt-label">&#9678; HUNT MODE [G]</span>
     <div id="inventory-hud">
       <span>MEAT <span id="inv-meat">0</span></span>
       <span>HIDE <span id="inv-hide">0</span></span>
@@ -283,9 +325,15 @@
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
+        integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"
+        integrity="sha384-fljlqkjWlmSFjkESkQvm77heIZpoWmXEOzlCA7kOpGUH+95Zk0yGfQieWM2q136E"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"
+        integrity="sha384-48sEMz1pIoO9ktrDus6dw7q9KVj242/vYNeNwDA4Lom38S7Sutog0tJLSqRBBZa6"
+        crossorigin="anonymous"></script>
 <script src="scene.js"></script>
 <script src="controls.js"></script>
 <script src="farming.js"></script>

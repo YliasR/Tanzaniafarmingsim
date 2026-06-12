@@ -58,42 +58,101 @@ function updateDayNight(dt) {
   moon.visible     = !sunAbove;
   moonGlow.visible = !sunAbove;
   moonLight.position.copy(moon.position);
-  moonLight.intensity = Math.max(0, -sunElev) * 0.35;
 
-  // Stars
+  // Stars (gentle global twinkle)
   starField.visible = sunElev < -0.25;
+  if (starField.visible) {
+    starField.material.opacity = 0.72 + Math.sin(time * 1.7) * 0.18;
+  }
 
-  // Directional light tracks sun
-  sunLight.position.copy(sun.position);
-  sunLight.intensity = Math.max(0, sunElev) * 1.4;
-  farmLamp.intensity = Math.max(0, -sunElev) * 2.2;
+  // Fireflies around the farm at night
+  fireflies.visible = sunElev < -0.08;
+  if (fireflies.visible) {
+    const fp = fireflyGeo.attributes.position.array;
+    for (let i = 0; i < FIREFLY_COUNT; i++) {
+      const b = _ffBase[i];
+      const t = time * b.speed + b.phase;
+      fp[i * 3]     = b.x + Math.sin(t * 0.9) * 1.4;
+      fp[i * 3 + 1] = b.y + Math.sin(t * 1.7) * 0.5;
+      fp[i * 3 + 2] = b.z + Math.cos(t * 0.7) * 1.4;
+    }
+    fireflyGeo.attributes.position.needsUpdate = true;
+    fireflies.material.opacity = 0.55 + Math.sin(time * 3.1) * 0.35;
+  }
+
+  // Directional light follows the sun's direction but stays anchored near the
+  // player so the shadow frustum keeps usable resolution across the whole map.
+  // (The visual sun mesh sits ~520 m out on the sky dome — far outside the
+  // shadow camera's far plane, so shadows were breaking up at distance.)
+  sunLight.position.set(
+    player.pos.x + Math.cos(sunAz) * 60,
+    Math.max(10, sunElev * 90 + 35),
+    player.pos.z + Math.sin(sunAz) * -60
+  );
+  sunLight.target.position.set(player.pos.x, 0, player.pos.z);
+  sunLight.target.updateMatrixWorld();
+  // Intensities retuned for ACES filmic tone mapping
+  sunLight.intensity = Math.max(0, sunElev) * 1.9;
+  farmLamp.intensity = Math.max(0, -sunElev) * 3.0;
+  moonLight.intensity = Math.max(0, -sunElev) * 0.5;
   const warmth = 1 - Math.max(0, sunElev); // 1 at horizon, 0 at zenith
   sunLight.color.setRGB(1.0, 0.88 + warmth * 0.12, 0.55 + Math.max(0, sunElev) * 0.45);
 
   // Ambient + hemi (weather modifier)
   const ambInt = lerpKF(SKY_KF, dayTime, 'amb');
   const wAmbMult = typeof getWeatherAmbientMult === 'function' ? getWeatherAmbientMult() : 1;
-  ambientLight.intensity = ambInt * wAmbMult;
+  ambientLight.intensity = ambInt * wAmbMult * 1.35;
   if (sunElev > 0) {
     ambientLight.color.setHex(0xffe8c0);
-    hemiLight.intensity = 0.45 * Math.max(0, sunElev);
+    hemiLight.intensity = 0.6 * Math.max(0, sunElev);
   } else {
     ambientLight.color.setHex(0x102040);
-    hemiLight.intensity = 0.04;
+    hemiLight.intensity = 0.06;
   }
 }
 
 // ============================================================
-// Signal rings
+// Signal rings (pooled — shared geometry, meshes reused)
 // ============================================================
 const signalRings = [];
+const _ringGeo = new THREE.RingGeometry(0.2, 0.24, 16);
+const _ringPool = [];
 function createSignalRing() {
-  const mat  = new THREE.MeshBasicMaterial({ color: 0xf1c40f, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
-  const ring = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.24, 16), mat);
-  ring.position.set(rpiGroup.position.x + 0.15, 2.85, rpiGroup.position.z);
-  ring.lookAt(towerGroup.position.x, 15, towerGroup.position.z);
-  scene.add(ring);
-  signalRings.push({ mesh: ring, scale: 1, opacity: 0.8 });
+  let r = _ringPool.pop();
+  if (!r) {
+    const mat = new THREE.MeshBasicMaterial({ color: 0xf1c40f, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+    r = { mesh: new THREE.Mesh(_ringGeo, mat), scale: 1, opacity: 0.8 };
+    scene.add(r.mesh);
+  }
+  r.scale = 1;
+  r.opacity = 0.8;
+  r.mesh.visible = true;
+  r.mesh.scale.set(1, 1, 1);
+  r.mesh.material.opacity = 0.8;
+  r.mesh.position.set(rpiGroup.position.x + 0.15, 2.85, rpiGroup.position.z);
+  r.mesh.lookAt(towerGroup.position.x, 15, towerGroup.position.z);
+  signalRings.push(r);
+}
+
+// ============================================================
+// Sleep (fade to black, skip to morning)
+// ============================================================
+let sleepFading = false;
+function sleepUntilMorning() {
+  if (sleepFading) return;
+  sleepFading = true;
+  const tipEl = document.getElementById('farm-tooltip');
+  if (tipEl) tipEl.style.display = 'none';
+  const fade = document.getElementById('sleep-fade');
+  if (!fade) { dayTime = 0.27; sleepFading = false; return; }
+  fade.classList.add('active');
+  setTimeout(() => {
+    dayTime = 0.27;
+    setTimeout(() => {
+      fade.classList.remove('active');
+      sleepFading = false;
+    }, 500);
+  }, 700);
 }
 
 // ============================================================
@@ -183,11 +242,10 @@ window.addEventListener('keydown', e => {
     if (typeof marketPos !== 'undefined' && player.pos.distanceTo(marketPos) < 4.5) {
       openMarket(); return;
     }
-    // Sleep at house door
+    // Sleep at house door (night only — matches the tooltip)
     if (typeof houseDoorPos !== 'undefined' && player.pos.distanceTo(houseDoorPos) < 4.0) {
-      dayTime = 0.27;
-      const tipEl = document.getElementById('farm-tooltip');
-      if (tipEl) tipEl.style.display = 'none';
+      const isNight = dayTime > 0.72 || dayTime < 0.24;
+      if (isNight) sleepUntilMorning();
       return;
     }
     // Talk to quest NPC
@@ -225,7 +283,14 @@ window.addEventListener('keydown', e => {
 let time          = 0;
 let particleTimer = 0;
 let signalTimer   = 0;
+let hudTimer      = 0;
 let lastTimestamp = performance.now();
+
+// Reused per-frame temps (avoid allocating in the hot loop)
+const _camEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+const _vFwd   = new THREE.Vector3();
+const _vRight = new THREE.Vector3();
+const _vUp    = new THREE.Vector3();
 
 function animate() {
   requestAnimationFrame(animate);
@@ -236,10 +301,27 @@ function animate() {
   const dt = gamePaused ? 0 : rawDt;
   if (!gamePaused) time += 0.016; // fixed step for animation cycles
 
+  // DOM updates are throttled to ~8 Hz — layout work is wasted at 60 fps
+  hudTimer += rawDt;
+  const hudTick = hudTimer >= 0.12;
+  if (hudTick) hudTimer = 0;
+
   // ---- First person camera ----
   updatePlayer(dt);
   camera.position.copy(player.pos);
-  camera.quaternion.setFromEuler(new THREE.Euler(player.pitch, player.yaw, 0, 'YXZ'));
+  camera.quaternion.setFromEuler(_camEuler.set(player.pitch, player.yaw, 0));
+
+  // Subtle FOV kick while sprinting (hands off while the rifle scope owns the FOV)
+  if (typeof scopeActive === 'undefined' || !scopeActive) {
+    const _moving = keys['KeyW'] || keys['KeyS'] || keys['KeyA'] || keys['KeyD'] ||
+                    keys['ArrowUp'] || keys['ArrowDown'] || keys['ArrowLeft'] || keys['ArrowRight'];
+    const _targetFov = (!gamePaused && _moving && (keys['ShiftLeft'] || keys['ShiftRight'])) ? 62 : 55;
+    if (Math.abs(camera.fov - _targetFov) > 0.05) {
+      camera.fov += (_targetFov - camera.fov) * Math.min(1, rawDt * 6);
+      camera.updateProjectionMatrix();
+    }
+  }
+
   const shadowGround = getGroundHeight(player.pos.x, player.pos.z);
   playerShadow.position.set(player.pos.x, shadowGround + 0.03, player.pos.z);
   playerShadow.scale.set(1, 1, 1).multiplyScalar(player.onGround ? 1 : 0.75);
@@ -250,7 +332,7 @@ function animate() {
   signalTimer   += dt;
 
   clouds.forEach((c, i) => {
-    c.position.x += 0.008 * (i % 2 === 0 ? 1 : -1);
+    c.position.x += 0.48 * dt * (i % 2 === 0 ? 1 : -1);
     if (c.position.x >  60) c.position.x = -60;
     if (c.position.x < -60) c.position.x =  60;
   });
@@ -265,11 +347,15 @@ function animate() {
     if (signalTimer > 2.0) { signalTimer = 0; createSignalRing(); }
     for (let i = signalRings.length - 1; i >= 0; i--) {
       const r = signalRings[i];
-      r.scale   += 0.08;
-      r.opacity -= 0.008;
+      r.scale   += 4.8 * dt;
+      r.opacity -= 0.48 * dt;
       r.mesh.scale.set(r.scale, r.scale, r.scale);
       r.mesh.material.opacity = Math.max(0, r.opacity);
-      if (r.opacity <= 0) { scene.remove(r.mesh); signalRings.splice(i, 1); }
+      if (r.opacity <= 0) {
+        r.mesh.visible = false;
+        _ringPool.push(r);
+        signalRings.splice(i, 1);
+      }
     }
   }
 
@@ -303,33 +389,31 @@ function animate() {
   // ---- Rifle viewmodel (follows camera) ----
   if (huntingMode && typeof rifleModel !== 'undefined') {
     const camQuat = camera.quaternion;
-    const fwd   = new THREE.Vector3(0,  0, -1).applyQuaternion(camQuat);
-    const right = new THREE.Vector3(1,  0,  0).applyQuaternion(camQuat);
-    const up    = new THREE.Vector3(0,  1,  0).applyQuaternion(camQuat);
-    const bob   = Math.sin(time * 9) * 0.003;
+    _vFwd.set(0,  0, -1).applyQuaternion(camQuat);
+    _vRight.set(1, 0,  0).applyQuaternion(camQuat);
+    _vUp.set(0,  1,  0).applyQuaternion(camQuat);
+    const bob = Math.sin(time * 9) * 0.003;
     rifleModel.position
       .copy(camera.position)
-      .addScaledVector(fwd,   0.42)
-      .addScaledVector(right, 0.20)
-      .addScaledVector(up,   -0.14 + bob);
+      .addScaledVector(_vFwd,   0.42)
+      .addScaledVector(_vRight, 0.20)
+      .addScaledVector(_vUp,   -0.14 + bob);
     rifleModel.quaternion.copy(camQuat);
   }
 
-  // ---- Interaction tooltips (shop/market/sleep) ----
-  updateInteractionTips();
-
-  // ---- Soil data HUD (sensor node upgrade) ----
-  if (typeof updateSoilHUD === 'function') updateSoilHUD();
-
-  // ---- Clock ----
-  updateClock();
+  // ---- HUD / DOM updates (throttled) ----
+  if (hudTick) {
+    updateInteractionTips();
+    if (typeof updateSoilHUD === 'function') updateSoilHUD();
+    updateClock();
+    if (typeof updateWeatherHUD === 'function') updateWeatherHUD();
+  }
 
   // ---- Day / Night cycle ----
   updateDayNight(dt);
 
   // ---- Weather ----
   if (typeof updateWeather === 'function') updateWeather(dt);
-  if (typeof updateWeatherHUD === 'function') updateWeatherHUD();
 
   // ---- Sensor drift ----
   if (Math.floor(time * 60) % 60 === 0) updateSensors();
@@ -446,7 +530,7 @@ function animate() {
 
   [giraffe1, giraffe2].forEach(g => {
     if (!g || !g.visible) return;
-    g.rotation.y += 0.0003;
+    g.rotation.y += 0.018 * dt;
     if (g.children[1]) g.children[1].rotation.x = Math.sin(time * 0.5) * 0.05;
   });
 
@@ -457,13 +541,13 @@ function animate() {
   }
 
   if (elephant && elephant.visible) {
-    elephant.rotation.y += 0.0002;
+    elephant.rotation.y += 0.012 * dt;
     if (elephant.children[6]) elephant.children[6].rotation.y = Math.sin(time * 1.5) * 0.2 - 0.3;
     if (elephant.children[7]) elephant.children[7].rotation.y = Math.sin(time * 1.5 + 0.5) * 0.2 + 0.3;
   }
 
   birds.forEach(b => {
-    b.angle += b.speed;
+    b.angle += b.speed * 60 * dt;
     b.mesh.position.x = Math.cos(b.angle) * b.radius;
     b.mesh.position.z = Math.sin(b.angle) * b.radius;
     b.mesh.position.y = b.height + Math.sin(time * 0.5 + b.angle) * 1.5;
@@ -557,10 +641,14 @@ function saveSettings() {
   const devMode  = !!(devModeEl && devModeEl.checked);
   const wasDevMode = localStorage.getItem('farmsim_dev_mode') === '1';
   const uiScale = document.getElementById('uiscale-slider').value;
+  const qualityEl = document.getElementById('quality-select');
+  const quality = qualityEl ? qualityEl.value : 'high';
   localStorage.setItem('farmsim_openrouter_key', key);
   localStorage.setItem('farmsim_hard_mode', hardMode ? '1' : '0');
   localStorage.setItem('farmsim_dev_mode', devMode ? '1' : '0');
   localStorage.setItem('farmsim_ui_scale', uiScale);
+  localStorage.setItem('farmsim_quality', quality);
+  applyQuality(quality);
   applyUIScale(parseFloat(uiScale));
   if (devMode && !wasDevMode) {
     // Turning dev mode ON — stash real money, then grant max
@@ -596,6 +684,35 @@ function applyUIScale(scale) {
   document.documentElement.style.setProperty('--ui-scale', scale);
 }
 
+// ============================================================
+// Graphics quality (pixel ratio + shadows, applied live)
+// ============================================================
+function applyQuality(q) {
+  if (q === 'low') {
+    renderer.setPixelRatio(1);
+    renderer.shadowMap.enabled = false;
+  } else if (q === 'medium') {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.shadowMap.enabled = true;
+    sunLight.shadow.mapSize.set(1024, 1024);
+  } else {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    sunLight.shadow.mapSize.set(2048, 2048);
+  }
+  // Force shadow map + materials to rebuild with the new settings
+  if (sunLight.shadow.map) {
+    sunLight.shadow.map.dispose();
+    sunLight.shadow.map = null;
+  }
+  scene.traverse(o => {
+    if (o.material) {
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach(m => { m.needsUpdate = true; });
+    }
+  });
+}
+
 // Live preview when dragging the slider
 (function initUIScaleSlider() {
   const slider = document.getElementById('uiscale-slider');
@@ -619,12 +736,16 @@ function applyUIScale(scale) {
   const uiScale = parseFloat(localStorage.getItem('farmsim_ui_scale')) || 1;
   const uiSlider = document.getElementById('uiscale-slider');
   const uiLabel  = document.getElementById('uiscale-value');
+  const quality  = localStorage.getItem('farmsim_quality') || 'high';
+  const qualityEl = document.getElementById('quality-select');
   if (el) el.value = key;
   if (hardModeEl) hardModeEl.checked = hardMode;
   if (devModeEl)  devModeEl.checked = devMode;
   if (uiSlider) uiSlider.value = uiScale;
   if (uiLabel)  uiLabel.textContent = uiScale.toFixed(1) + 'x';
+  if (qualityEl) qualityEl.value = quality;
   applyUIScale(uiScale);
+  if (quality !== 'high') applyQuality(quality);
   if (devMode) {
     // On load with dev mode active, stash current money if not already stashed, then grant max
     if (localStorage.getItem('farmsim_pre_dev_money') == null) {

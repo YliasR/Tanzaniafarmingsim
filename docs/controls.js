@@ -87,15 +87,16 @@ function updatePlayer(dt) {
   const fwdX = -sinY,  fwdZ = -cosY;
   const rgtX =  cosY,  rgtZ = -sinY;
 
-  const move = new THREE.Vector3();
-  if (keys['KeyW'] || keys['ArrowUp'])    move.add(new THREE.Vector3(fwdX, 0, fwdZ));
-  if (keys['KeyS'] || keys['ArrowDown'])  move.add(new THREE.Vector3(-fwdX, 0, -fwdZ));
-  if (keys['KeyA'] || keys['ArrowLeft'])  move.add(new THREE.Vector3(-rgtX, 0, -rgtZ));
-  if (keys['KeyD'] || keys['ArrowRight']) move.add(new THREE.Vector3(rgtX, 0, rgtZ));
-  if (move.lengthSq() > 0) move.normalize().multiplyScalar(speed);
+  let mx = 0, mz = 0;
+  if (keys['KeyW'] || keys['ArrowUp'])    { mx += fwdX; mz += fwdZ; }
+  if (keys['KeyS'] || keys['ArrowDown'])  { mx -= fwdX; mz -= fwdZ; }
+  if (keys['KeyA'] || keys['ArrowLeft'])  { mx -= rgtX; mz -= rgtZ; }
+  if (keys['KeyD'] || keys['ArrowRight']) { mx += rgtX; mz += rgtZ; }
+  const mLen = Math.hypot(mx, mz);
+  if (mLen > 0) { mx = (mx / mLen) * speed; mz = (mz / mLen) * speed; }
 
-  player.vel.x = move.x;
-  player.vel.z = move.z;
+  player.vel.x = mx;
+  player.vel.z = mz;
 
   // Jump — checked before onGround is reset so the flag is from the previous frame
   if (keys['Space'] && player.onGround) {

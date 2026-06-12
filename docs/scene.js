@@ -125,9 +125,12 @@ function groundAt(x, z) {
 camera.position.set(12, 8, 14);
 camera.lookAt(0, 1, 0);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 container.appendChild(renderer.domElement);
@@ -322,7 +325,12 @@ sunLight.shadow.camera.left = -50;
 sunLight.shadow.camera.right = 50;
 sunLight.shadow.camera.top = 50;
 sunLight.shadow.camera.bottom = -50;
+sunLight.shadow.camera.near = 1;
+sunLight.shadow.camera.far = 300;
+sunLight.shadow.bias = -0.0004;
+sunLight.shadow.normalBias = 0.02;
 scene.add(sunLight);
+scene.add(sunLight.target); // shadow frustum follows the player (app.js)
 const moonLight = new THREE.DirectionalLight(0x88aaff, 0);
 moonLight.position.set(-40, 45, 35);
 scene.add(moonLight);
@@ -395,35 +403,45 @@ scene.add(ground);
 
 // Farm plot built by farming.js
 
-// --- Dry grass tufts scattered across savanna ---
-function createGrassTuft(x, z) {
-  const safe = moveOutOfReservedPlots(x, z, 0.9);
-  const gY = groundAt(safe.x, safe.z);
-  const blades = 4 + Math.floor(Math.random() * 5);
-  for (let i = 0; i < blades; i++) {
-    const h = 0.3 + Math.random() * 0.5;
-    const blade = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.05, h),
-      new THREE.MeshLambertMaterial({
-        color: Math.random() > 0.3 ? 0xb8a050 : 0x8a7a30,
-        side: THREE.DoubleSide
-      })
-    );
-    blade.position.set(
-      safe.x + (Math.random() - 0.5) * 0.4,
-      gY + h / 2,
-      safe.z + (Math.random() - 0.5) * 0.4
-    );
-    blade.rotation.y = Math.random() * Math.PI;
-    blade.rotation.z = (Math.random()-0.5) * 0.3;
-    scene.add(blade);
+// --- Dry grass scattered across savanna (single instanced draw call) ---
+(function createGrassField() {
+  const MAX_BLADES = 2400;
+  // Unit-height blade with pivot at the base — per-instance Y scale sets height.
+  const bladeGeo = new THREE.PlaneGeometry(0.06, 1);
+  bladeGeo.translate(0, 0.5, 0);
+  const bladeMat = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
+  const grassField = new THREE.InstancedMesh(bladeGeo, bladeMat, MAX_BLADES);
+  const dummy = new THREE.Object3D();
+  const cDry  = new THREE.Color(0xb8a050);
+  const cDark = new THREE.Color(0x8a7a30);
+  let idx = 0;
+  for (let t = 0; t < 340 && idx < MAX_BLADES; t++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist  = 14 + Math.random() * 220;
+    const safe  = moveOutOfReservedPlots(Math.cos(angle) * dist, Math.sin(angle) * dist, 0.9);
+    const gY    = groundAt(safe.x, safe.z);
+    const blades = 4 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < blades && idx < MAX_BLADES; i++) {
+      const h = 0.3 + Math.random() * 0.5;
+      dummy.position.set(
+        safe.x + (Math.random() - 0.5) * 0.4,
+        gY,
+        safe.z + (Math.random() - 0.5) * 0.4
+      );
+      dummy.rotation.set(0, Math.random() * Math.PI, (Math.random() - 0.5) * 0.3);
+      dummy.scale.set(1, h, 1);
+      dummy.updateMatrix();
+      grassField.setMatrixAt(idx, dummy.matrix);
+      grassField.setColorAt(idx, Math.random() > 0.3 ? cDry : cDark);
+      idx++;
+    }
   }
-}
-for (let i = 0; i < 300; i++) {
-  const angle = Math.random() * Math.PI * 2;
-  const dist = 14 + Math.random() * 220;
-  createGrassTuft(Math.cos(angle)*dist, Math.sin(angle)*dist);
-}
+  grassField.count = idx;
+  grassField.instanceMatrix.needsUpdate = true;
+  if (grassField.instanceColor) grassField.instanceColor.needsUpdate = true;
+  grassField.frustumCulled = false; // spans the whole map — culling test costs more than drawing
+  scene.add(grassField);
+})();
 
 
 // --- Kilimanjaro in the distance ---
@@ -467,13 +485,17 @@ createHill(-140, 130, 40, 12, 0x7a8050);
 createHill(80, 180, 28, 7, 0x7a8a5a);
 createHill(-90, -190, 38, 11, 0x8a9060);
 
-// --- Red rocks / boulders (laterite outcrops) ---
+// --- Red rocks / boulders (laterite outcrops) — shared geometry + materials ---
+const _rockGeo = new THREE.DodecahedronGeometry(1, 0);
+const _rockMats = [
+  new THREE.MeshLambertMaterial({ color: 0x8b4525 }),
+  new THREE.MeshLambertMaterial({ color: 0x95502c }),
+  new THREE.MeshLambertMaterial({ color: 0x9e5a35 }),
+];
 function createRock(x, z, s) {
   const safe = moveOutOfReservedPlots(x, z, 0.9);
-  const rock = new THREE.Mesh(
-    new THREE.DodecahedronGeometry(s, 0),
-    new THREE.MeshLambertMaterial({ color: 0x8b4525 + Math.floor(Math.random() * 0x151515) })
-  );
+  const rock = new THREE.Mesh(_rockGeo, _rockMats[Math.floor(Math.random() * _rockMats.length)]);
+  rock.scale.setScalar(s);
   rock.position.set(safe.x, groundAt(safe.x, safe.z) + s * 0.4, safe.z);
   rock.rotation.set(Math.random(), Math.random(), Math.random());
   rock.castShadow = true;
@@ -786,6 +808,7 @@ const houseDoorPos = new THREE.Vector3(_hX + 2.5, groundAt(_hX, _hZ) + 1.0, _hZ)
     lampGroup.add(lanternBody);
 
     const glassMat = new THREE.MeshBasicMaterial({ color: 0xffaa22, transparent: true, opacity: 0.9 });
+    glassMat.toneMapped = false;
     for (let i = 0; i < 4; i++) {
       const pane = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.22), glassMat);
       const a = (i / 4) * Math.PI * 2;
@@ -1115,40 +1138,35 @@ const BAOBAB_TREE_POSITIONS = [
 ];
 BAOBAB_TREE_POSITIONS.forEach(([x,z,s]) => createBaobab(x,z,s));
 
-// --- African sun (big, hot, golden) ---
-const sun = new THREE.Mesh(
-  new THREE.SphereGeometry(4, 16, 16),
-  new THREE.MeshBasicMaterial({ color: 0xffdd33 })
-);
+// --- African sun (big, hot, golden) — toneMapped off so it stays blinding ---
+const _sunMat = new THREE.MeshBasicMaterial({ color: 0xffdd33 });
+_sunMat.toneMapped = false;
+const sun = new THREE.Mesh(new THREE.SphereGeometry(4, 16, 16), _sunMat);
 sun.position.set(60, 45, -40);
 scene.add(sun);
 // Heat haze glow
-const glow = new THREE.Mesh(
-  new THREE.SphereGeometry(8, 16, 16),
-  new THREE.MeshBasicMaterial({ color: 0xffcc22, transparent: true, opacity: 0.12 })
-);
+const _glowMat = new THREE.MeshBasicMaterial({ color: 0xffcc22, transparent: true, opacity: 0.12 });
+_glowMat.toneMapped = false;
+const glow = new THREE.Mesh(new THREE.SphereGeometry(8, 16, 16), _glowMat);
 glow.position.copy(sun.position);
 scene.add(glow);
 // Second glow ring (heat shimmer)
-const glow2 = new THREE.Mesh(
-  new THREE.SphereGeometry(14, 16, 16),
-  new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.04 })
-);
+const _glow2Mat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.04 });
+_glow2Mat.toneMapped = false;
+const glow2 = new THREE.Mesh(new THREE.SphereGeometry(14, 16, 16), _glow2Mat);
 glow2.position.copy(sun.position);
 scene.add(glow2);
 
 // --- Moon ---
-const moon = new THREE.Mesh(
-  new THREE.SphereGeometry(2.2, 12, 12),
-  new THREE.MeshBasicMaterial({ color: 0xddeeff })
-);
+const _moonMat = new THREE.MeshBasicMaterial({ color: 0xddeeff });
+_moonMat.toneMapped = false;
+const moon = new THREE.Mesh(new THREE.SphereGeometry(2.2, 12, 12), _moonMat);
 moon.position.set(-60, 50, 40);
 moon.visible = false;
 scene.add(moon);
-const moonGlow = new THREE.Mesh(
-  new THREE.SphereGeometry(5, 12, 12),
-  new THREE.MeshBasicMaterial({ color: 0x8899cc, transparent: true, opacity: 0.08 })
-);
+const _moonGlowMat = new THREE.MeshBasicMaterial({ color: 0x8899cc, transparent: true, opacity: 0.08 });
+_moonGlowMat.toneMapped = false;
+const moonGlow = new THREE.Mesh(new THREE.SphereGeometry(5, 12, 12), _moonGlowMat);
 moonGlow.position.copy(moon.position);
 moonGlow.visible = false;
 scene.add(moonGlow);
@@ -1165,12 +1183,38 @@ for (let i = 0; i < 800; i++) {
   starPositions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
 }
 starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-const starField = new THREE.Points(
-  starGeo,
-  new THREE.PointsMaterial({ color: 0xffffff, size: 2, sizeAttenuation: false })
-);
+const _starMat = new THREE.PointsMaterial({
+  color: 0xffffff, size: 2, sizeAttenuation: false,
+  transparent: true, opacity: 0.9,
+});
+_starMat.toneMapped = false;
+const starField = new THREE.Points(starGeo, _starMat);
 starField.visible = false;
 scene.add(starField);
+
+// --- Fireflies (drift around the farm at night) ---
+const FIREFLY_COUNT = 56;
+const fireflyGeo = new THREE.BufferGeometry();
+const _ffPositions = new Float32Array(FIREFLY_COUNT * 3);
+const _ffBase = []; // { x, y, z, phase, speed }
+for (let i = 0; i < FIREFLY_COUNT; i++) {
+  const fx = -30 + Math.random() * 60;
+  const fz = -10 + Math.random() * 40;
+  const fy = groundAt(fx, fz) + 0.6 + Math.random() * 1.8;
+  _ffBase.push({ x: fx, y: fy, z: fz, phase: Math.random() * Math.PI * 2, speed: 0.4 + Math.random() * 0.8 });
+  _ffPositions[i * 3] = fx;
+  _ffPositions[i * 3 + 1] = fy;
+  _ffPositions[i * 3 + 2] = fz;
+}
+fireflyGeo.setAttribute('position', new THREE.BufferAttribute(_ffPositions, 3));
+const _fireflyMat = new THREE.PointsMaterial({
+  color: 0xccff66, size: 0.14, transparent: true, opacity: 0.85,
+  blending: THREE.AdditiveBlending, depthWrite: false,
+});
+_fireflyMat.toneMapped = false;
+const fireflies = new THREE.Points(fireflyGeo, _fireflyMat);
+fireflies.visible = false;
+scene.add(fireflies);
 
 // --- Sky dome — panoramic texture tinted by day/night cycle in app.js ---
 const skyDomeMat = new THREE.MeshBasicMaterial({
@@ -1179,12 +1223,22 @@ const skyDomeMat = new THREE.MeshBasicMaterial({
   fog: false,
   color: 0x87ceeb, // placeholder until texture loads
 });
+skyDomeMat.toneMapped = false; // sky stays vivid — tone mapping only grades the world
 const skyDome = new THREE.Mesh(new THREE.SphereGeometry(1900,40, 20), skyDomeMat);
 skyDome.renderOrder = -1;
 scene.add(skyDome);
-new THREE.TextureLoader().load('../img/skybox.jpg', tex => {
+// 'img/skybox.webp' lives inside docs/ so it resolves under the game://
+// protocol too ('../img/…' escapes the protocol root and gets blocked).
+new THREE.TextureLoader().load('img/skybox.webp', tex => {
+  tex.encoding = THREE.sRGBEncoding;
   skyDomeMat.map = tex;
   skyDomeMat.needsUpdate = true;
+}, undefined, () => {
+  new THREE.TextureLoader().load('../img/skybox.jpg', tex => {
+    tex.encoding = THREE.sRGBEncoding;
+    skyDomeMat.map = tex;
+    skyDomeMat.needsUpdate = true;
+  });
 });
 
 // --- Clouds (sparse, bright tropical cumulus) ---

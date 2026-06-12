@@ -62,6 +62,9 @@ A low-poly, open-world farming simulator set in rural Tanzania. Explore the sava
 - **Auto-save** every 30 seconds + on tab close
 - **Pause menu** — ESC to pause, return to main menu, or exit
 - **NPC idle animations** — characters sway and look around
+- **Graphics quality setting** — Low / Medium / High (pixel ratio + shadow quality)
+- **Filmic rendering** — ACES tone mapping, sRGB output, player-following shadows
+- **Night ambience** — fireflies around the farm, twinkling stars, oil-lamp glow
 
 ## Controls
 
