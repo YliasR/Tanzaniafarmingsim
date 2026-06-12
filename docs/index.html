@@ -49,10 +49,11 @@
       </div>
       <div class="menu-buttons title-buttons">
         <button class="menu-btn primary" onclick="startGame()"><span class="btn-ico">&#9654;</span>PLAY</button>
+        <button class="menu-btn" onclick="showPage('achievements')"><span class="btn-ico">&#9733;</span>ACHIEVEMENTS</button>
         <button class="menu-btn" onclick="showPage('settings')"><span class="btn-ico">&#9881;</span>SETTINGS</button>
         <button class="menu-btn" onclick="showPage('help')"><span class="btn-ico">?</span>HELP / ABOUT</button>
       </div>
-      <p class="title-version">v1.4.0 &mdash; MysticFox</p>
+      <p class="title-version">v1.5.0 &mdash; MysticFox</p>
     </div>
   </div>
 
@@ -71,6 +72,26 @@
           </select>
         </div>
         <p class="setting-hint">Lower this if the game stutters on older machines.</p>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label">Audio</label>
+        <div class="input-row">
+          <label class="setting-hint hardmode-row">
+            <input type="checkbox" id="music-toggle" checked>
+            <span>Music &mdash; generative kalimba ambient</span>
+          </label>
+        </div>
+        <div class="input-row" style="margin-top:8px">
+          <label class="setting-hint hardmode-row">
+            <input type="checkbox" id="sfx-toggle" checked>
+            <span>Sound effects &amp; ambience</span>
+          </label>
+        </div>
+        <div class="input-row slider-row" style="margin-top:10px">
+          <input type="range" id="audiovol-slider" min="0" max="1" step="0.05" value="0.8">
+          <span id="audiovol-value" class="slider-value">80%</span>
+        </div>
       </div>
 
       <div class="setting-group">
@@ -123,6 +144,18 @@
         <button class="menu-btn" onclick="showPage('title')">&#8592; BACK</button>
       </div>
       <p id="settings-saved-msg" class="saved-msg"></p>
+    </div>
+  </div>
+
+  <!-- Achievements Page -->
+  <div id="page-achievements" class="menu-page hidden">
+    <div class="menu-card wide">
+      <h2 class="page-title">ACHIEVEMENTS</h2>
+      <p id="ach-counter" class="ach-counter"></p>
+      <div id="ach-list"></div>
+      <div class="menu-buttons" style="margin-top:24px">
+        <button class="menu-btn" onclick="showPage('title')">&#8592; BACK</button>
+      </div>
     </div>
   </div>
 
@@ -236,6 +269,17 @@
   </div>
 </div>
 
+<!-- ===== WANDERING TRADER OVERLAY ===== -->
+<div id="trader-overlay" class="trade-overlay hidden">
+  <div class="trade-card quest-card">
+    <h2 class="trade-title">MFANYABIASHARA</h2>
+    <div class="trade-money">Balance: TSh <span id="trader-money">500</span></div>
+    <p class="market-notice">Today's deals — new offers each morning!</p>
+    <div id="trader-deals"></div>
+    <button class="menu-btn trade-close" onclick="closeTrader()">[E] CLOSE</button>
+  </div>
+</div>
+
 <!-- ===== MARKET OVERLAY ===== -->
 <div id="market-overlay" class="trade-overlay hidden">
   <div class="trade-card">
@@ -263,6 +307,7 @@
     <div id="money-hud">TSh <span id="money-amount">500</span></div>
     <div id="game-clock">06:00</div>
     <div id="weather-hud"></div>
+    <div id="season-hud"></div>
     <p id="nokia-hint-hud">[ N ] Nokia &nbsp;[ I ] Inventory</p>
     <div id="soil-data-hud" style="display:none"></div>
   </div>
@@ -274,6 +319,9 @@
 
   <!-- Quest completion toast -->
   <div id="quest-notification"></div>
+
+  <!-- Achievement unlock toast -->
+  <div id="achievement-toast"></div>
 
   <!-- Seed toolbar -->
   <div id="seed-toolbar">
@@ -347,5 +395,9 @@
 <script src="quests.js"></script>
 <script src="sms.js"></script>
 <script src="app.js"></script>
+<script src="seasons.js"></script>
+<script src="achievements.js"></script>
+<script src="trader.js"></script>
+<script src="audio.js"></script>
 </body>
 </html>

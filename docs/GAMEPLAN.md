@@ -69,14 +69,14 @@
 
 - [x] Currency: Tanzanian Shillings (TSh) or simplified "coins"
 - [x] Market/shop: interact with a building to open buy/sell menu
-- [ ] Buyable items:
+- [x] Buyable items:
   - Seeds (different crop types)
   - Tools (hoe, watering can, slingshot, better versions)
   - Animal feed
   - Building materials
   - Fencing
-- [ ] Sell: crops, animal products, hunted items
-- [ ] Prices fluctuate slightly (simple random daily market)
+- [x] Sell: crops, animal products, hunted items
+- [x] Prices fluctuate slightly (simple random daily market)
 
 ---
 
@@ -109,7 +109,7 @@
 - [x] `npm init` + install `electron` (package.json created)
 - [x] Create `main.js` (Electron entry point, loads `index.html`)
 - [x] Window config: fullscreen by default, resizable, title "Tanzania Farm Sim"
-- [ ] Test on Windows + Linux (run `npm start`)
+- [x] Test on Windows + Linux (run `npm start`)
 - [x] Use `electron-builder` to create installers:
   - `.exe` for Windows
   - `.AppImage` / `.deb` for Linux
@@ -138,13 +138,13 @@
 ## Nice-to-Have (Later)
 
 - [x] Save/load system (localStorage for HTML5, file system for Electron)
-- [ ] Sound effects: footsteps, ambient birds, wind, crop harvesting, animal sounds
-- [ ] Music: chill lo-fi African-inspired ambient soundtrack
-- [ ] Weather system: rain (boosts crops), drought (damages them), wind
-- [ ] Seasons that affect what you can grow
-- [ ] NPCs: other farmers, traders passing through
-- [ ] Quests: "grow 10 maize", "build a chicken coop", "hunt 3 birds"
-- [ ] Achievements / unlockables
+- [x] Sound effects: footsteps, ambient birds, wind, crop harvesting, animal sounds (procedural WebAudio, v1.5.0)
+- [x] Music: chill lo-fi African-inspired ambient soundtrack (generative kalimba, v1.5.0)
+- [x] Weather system: rain (boosts crops), drought (damages them), wind
+- [x] Seasons that affect what you can grow (Kaskazi/Masika/Kiangazi/Vuli, v1.5.0)
+- [x] NPCs: other farmers, traders passing through (wandering trader with daily deals, v1.5.0)
+- [x] Quests: "grow 10 maize", "build a chicken coop", "hunt 3 birds" (32 quests)
+- [x] Achievements / unlockables (20 achievements, v1.5.0)
 - [ ] Multiplayer (way later, big scope)
 - [ ] Mobile touch controls (if HTML5 version gets popular)
 - [ ] Steam port (if itch.io does well — $100 fee, Steamworks SDK integration)

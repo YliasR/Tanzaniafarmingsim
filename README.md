@@ -40,11 +40,28 @@ A low-poly, open-world farming simulator set in rural Tanzania. Explore the sava
 | **Sensori (Sensor Node)** | Live soil data HUD + AI SMS analysis |
 | **Nyumba Kubwa (Big House)** | Upgraded house model |
 
-### Weather
+### Weather & Seasons
 - **5 weather types** — Clear, Cloudy, Rain, Storm, and Drought
 - Rain auto-waters crops; drought dries soil and slows growth
-- Storms bring heavy fog, reduced visibility, and lightning flashes
+- Storms bring heavy fog, reduced visibility, lightning flashes, and thunder
 - Weather shifts on weighted transitions every 1–3 minutes
+- **4 Tanzanian seasons** — Kaskazi (hot & dry), Masika (long rains), Kiangazi (dry season), Vuli (short rains)
+- Seasons bias the weather and change per-crop growth speed — maize loves Masika, sorghum shrugs off Kiangazi
+
+### Sound & Music
+- **Fully procedural audio** — every sound is synthesized live with WebAudio, zero audio files
+- Footsteps, planting, watering, harvest, shop chimes, rifle, pickups, quest/achievement jingles
+- Ambience that follows the world: wind, rain, thunder, birdsong by day, crickets by night
+- **Generative kalimba soundtrack** — sparse pentatonic plucks that slow down after dark
+- Music/SFX toggles + volume in settings
+
+### Wandering Trader
+- **Mfanyabiashara** patrols the road between the Duka and the Soko
+- Daily rotating deals: discounted seeds and one crop he'll buy well over market rate
+
+### Achievements
+- **20 achievements** — farming, hunting, wealth, land, quests, and a full year survived
+- Unlock toasts in-game + achievements page on the title screen
 
 ### Day / Night Cycle
 - Full 24-hour cycle in ~5 real minutes
