@@ -1028,21 +1028,26 @@ shopAwning.position.set(0, 2.3, 2.3);
 shopAwning.rotation.x = 0.15;
 shopGroup.add(shopAwning);
 
-// DUKA sign (canvas texture)
-const dukaCanvas = document.createElement('canvas');
-dukaCanvas.width = 200; dukaCanvas.height = 60;
-const dukaCtx = dukaCanvas.getContext('2d');
-dukaCtx.fillStyle = '#2a6a20';
-dukaCtx.fillRect(0, 0, 200, 60);
-dukaCtx.fillStyle = '#fff';
-dukaCtx.font = 'bold 36px monospace';
-dukaCtx.textAlign = 'center';
-dukaCtx.fillText('DUKA', 100, 42);
-const dukaSign = new THREE.Mesh(
-  new THREE.PlaneGeometry(2, 0.6),
-  new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(dukaCanvas) })
-);
-dukaSign.position.set(0, 2.85, 1.76);
+// Hand-painted sign boards (AI textures under img/gen/). The plane is
+// rescaled to the texture's native aspect ratio once it loads so the art
+// is never squished; until then a flat fallback colour stands in.
+function loadSignPlane(url, height, fallbackColor) {
+  const mat = new THREE.MeshBasicMaterial({ color: fallbackColor, transparent: true });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, height), mat);
+  new THREE.TextureLoader().load(url, tex => {
+    tex.encoding = THREE.sRGBEncoding;
+    mat.map = tex;
+    mat.color.setHex(0xffffff);
+    mat.needsUpdate = true;
+    const img = tex.image;
+    if (img && img.width) mesh.scale.x = height * (img.width / img.height);
+  });
+  return mesh;
+}
+
+// DUKA sign — hand-painted board texture
+const dukaSign = loadSignPlane('img/gen/sign-duka.png', 0.82, 0x2a6a20);
+dukaSign.position.set(0, 2.95, 1.76);
 shopGroup.add(dukaSign);
 
 scene.add(shopGroup);
@@ -1116,21 +1121,9 @@ for (let i = 0; i < 3; i++) {
   marketGroup.add(sack);
 }
 
-// SOKO sign
-const sokoCanvas = document.createElement('canvas');
-sokoCanvas.width = 200; sokoCanvas.height = 60;
-const sokoCtx = sokoCanvas.getContext('2d');
-sokoCtx.fillStyle = '#aa5520';
-sokoCtx.fillRect(0, 0, 200, 60);
-sokoCtx.fillStyle = '#fff';
-sokoCtx.font = 'bold 36px monospace';
-sokoCtx.textAlign = 'center';
-sokoCtx.fillText('SOKO', 100, 42);
-const sokoSign = new THREE.Mesh(
-  new THREE.PlaneGeometry(2, 0.6),
-  new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(sokoCanvas) })
-);
-sokoSign.position.set(0, 2.8, 0);
+// SOKO sign — hand-painted board texture
+const sokoSign = loadSignPlane('img/gen/sign-soko.png', 0.82, 0xaa5520);
+sokoSign.position.set(0, 2.9, 0);
 marketGroup.add(sokoSign);
 
 scene.add(marketGroup);

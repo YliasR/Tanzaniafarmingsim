@@ -33,6 +33,19 @@ const plotMeshes = {};
 // "For sale" sign meshes
 const plotSigns = {};
 
+// Hand-painted FOR SALE board (img/gen/sign-forsale.png). The art carries
+// the "FOR SALE" header + frame; plot-specific details are drawn on top in
+// the empty lower half. Any signs already built when the image finishes
+// loading are rebuilt so they pick up the texture.
+const _forSaleImg = new Image();
+let _forSaleReady = false;
+_forSaleImg.onload = () => {
+  _forSaleReady = true;
+  for (const id of Object.keys(plotSigns)) removeSaleSign(id);
+  refreshSaleSigns();
+};
+_forSaleImg.src = 'img/gen/sign-forsale.png';
+
 // ============================================================
 // Override groundAt to include owned plots
 // ============================================================
@@ -228,28 +241,36 @@ function buildSaleSign(plot) {
   post.castShadow = true;
   g.add(post);
 
-  // Sign board with canvas text
+  // Sign board — hand-painted texture with plot details overlaid
   const canvas = document.createElement('canvas');
-  canvas.width = 256; canvas.height = 128;
+  canvas.width = 512; canvas.height = 256;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#f5e6c8';
-  ctx.fillRect(0, 0, 256, 128);
-  ctx.strokeStyle = '#5a3a10';
-  ctx.lineWidth = 4;
-  ctx.strokeRect(2, 2, 252, 124);
-  ctx.fillStyle = '#3a1a05';
-  ctx.font = 'bold 28px monospace';
+  if (_forSaleReady) {
+    ctx.drawImage(_forSaleImg, 0, 0, canvas.width, canvas.height);
+  } else {
+    // flat fallback board until the texture loads
+    ctx.fillStyle = '#f5e6c8';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#5a3a10';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+    ctx.fillStyle = '#3a1a05';
+    ctx.font = 'bold 56px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('FOR SALE', 256, 72);
+  }
+  // Plot details in the empty lower half of the board
   ctx.textAlign = 'center';
-  ctx.fillText('FOR SALE', 128, 36);
-  ctx.font = '18px monospace';
-  ctx.fillText(plot.name, 128, 62);
+  ctx.fillStyle = '#3a1a05';
+  ctx.font = 'bold 34px monospace';
+  ctx.fillText(plot.name, 256, 150);
   ctx.fillStyle = '#aa5500';
-  ctx.font = 'bold 22px monospace';
-  ctx.fillText('TSh ' + plot.price, 128, 90);
+  ctx.font = 'bold 40px monospace';
+  ctx.fillText('TSh ' + plot.price, 256, 194);
   const typeLabel = plot.type === 'fertile' ? 'Fertile' : plot.type === 'riverside' ? 'Riverside' : 'Savanna';
-  ctx.fillStyle = '#666';
-  ctx.font = '14px monospace';
-  ctx.fillText(typeLabel + ' — ' + plot.cols + 'x' + plot.rows + ' cells', 128, 116);
+  ctx.fillStyle = '#6a4a2a';
+  ctx.font = '24px monospace';
+  ctx.fillText(typeLabel + ' — ' + plot.cols + 'x' + plot.rows + ' cells', 256, 226);
 
   const signMesh = new THREE.Mesh(
     new THREE.PlaneGeometry(1.8, 0.9),

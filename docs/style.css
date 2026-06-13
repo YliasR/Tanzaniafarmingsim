@@ -456,7 +456,9 @@ canvas { display: block; }
   height: 7px;
   margin: -24px -22px 26px;
   border-radius: 4px;
-  background: var(--kanga);
+  background-image: url('img/gen/kanga-strip.png'), var(--kanga);
+  background-size: auto 100%;
+  background-repeat: repeat-x;
   opacity: 0.9;
 }
 .menu-card.wide { width: 560px; }
@@ -814,7 +816,9 @@ kbd {
   height: 7px;
   margin: -16px -18px 22px;
   border-radius: 4px;
-  background: var(--kanga);
+  background-image: url('img/gen/kanga-strip.png'), var(--kanga);
+  background-size: auto 100%;
+  background-repeat: repeat-x;
   opacity: 0.9;
 }
 .trade-card.quest-card { width: 420px; }
